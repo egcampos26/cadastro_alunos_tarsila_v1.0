@@ -1,0 +1,5 @@
+{
+  "name": "Portal de Cadastro Escolar",
+  "description": "Sistema para responsáveis preencherem informações cadastrais de alunos através de busca nominal.",
+  "requestFramePermissions": []
+}
