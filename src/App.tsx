@@ -163,13 +163,13 @@ export default function App() {
           *,
           DADOS_ALUNOS (*)
         `)
-        .ilike('nome_aluno', `%${searchTerm.trim()}%`)
+        .ilike('nome_aluno', searchTerm.trim())
         .limit(1);
 
       if (searchError) throw searchError;
 
       if (!students || students.length === 0) {
-        setError('Aluno não encontrado. Verifique se o nome está correto.');
+        setError('Aluno não encontrado, verifique se o nome completo esta correto');
       } else {
         const student = students[0];
         const extraData = student.DADOS_ALUNOS?.[0] || {};
@@ -252,6 +252,9 @@ export default function App() {
     e.preventDefault();
     if (!foundStudent) return;
 
+    const confirmSave = window.confirm("Deseja realmente salvar? Não será possível voltar ao formulário para refazer.");
+    if (!confirmSave) return;
+
     setIsSubmitting(true);
     setError(null);
 
@@ -333,6 +336,45 @@ export default function App() {
       setError('Erro ao salvar informações. Tente novamente.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCancel = () => {
+    const confirmCancel = window.confirm("Deseja realmente cancelar o preenchimento? Todos os dados não salvos serão perdidos.");
+    if (confirmCancel) {
+      setFoundStudent(null);
+      setSearchTerm('');
+      setFormData({
+        birthDate: '',
+        gender: '',
+        race: '',
+        cpf: '',
+        rg: '',
+        rgDigit: '',
+        guardianName: '',
+        guardianCpf: '',
+        guardianPhone: '',
+        guardianWhatsapp: '',
+        guardianEmail: '',
+        motherName: '',
+        motherCpf: '',
+        motherPhone: '',
+        motherWhatsapp: '',
+        motherEmail: '',
+        fatherName: '',
+        fatherCpf: '',
+        fatherPhone: '',
+        fatherWhatsapp: '',
+        fatherEmail: '',
+        cep: '',
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: '',
+        state: '',
+        healthInfo: ''
+      });
     }
   };
 
@@ -905,11 +947,19 @@ export default function App() {
                   </div>
                 </section>
 
-                <div className="pt-6 border-top border-gray-100">
+                <div className="pt-6 border-top border-gray-100 flex flex-col sm:flex-row gap-4">
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-white hover:bg-gray-50 text-gray-500 font-bold py-4 rounded-xl border border-gray-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                    className="flex-2 bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                   >
                     {isSubmitting ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

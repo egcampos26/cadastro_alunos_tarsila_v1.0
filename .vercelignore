@@ -1,0 +1,12 @@
+.env
+.env.local
+.env.*.local
+node_modules
+dist
+firebase-*
+firestore.rules
+.gemini
+README.md
+implementation_plan.md
+task.md
+walkthrough.md
