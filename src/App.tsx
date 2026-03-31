@@ -74,7 +74,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [isMotherMain, setIsMotherMain] = useState(false);
   const [isFatherMain, setIsFatherMain] = useState(false);
 
@@ -378,47 +377,26 @@ export default function App() {
     }
   };
 
-  const seedData = async () => {
-    setIsSeeding(true);
-    try {
-      const students = [
-        { nome_aluno: 'João Silva', serie_aluno: '9º B', periodo_aluno: 'MANHÃ' },
-        { nome_aluno: 'Maria Oliveira', serie_aluno: '8º A', periodo_aluno: 'TARDE' },
-        { nome_aluno: 'Pedro Santos', serie_aluno: '1º C', periodo_aluno: 'MANHÃ' }
-      ];
-      
-      for (const student of students) {
-        await supabase.from('ALUNOS').insert(student);
-      }
-      alert('Dados de teste adicionados com sucesso! Tente buscar por "João Silva"');
-    } catch (err) {
-      handleError(err);
-      alert('Erro ao adicionar dados de teste.');
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100">
       {/* Header */}
-      <header className="bg-[#3b5998] border-b border-[#2d4373] py-6 px-4 sticky top-0 z-10 shadow-sm text-white">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">PERFIL DO ALUNO</h1>
-          </div>
-          <button 
-            onClick={seedData}
-            disabled={isSeeding}
-            className="text-xs text-white/70 hover:text-white transition-colors flex items-center gap-1"
-          >
-            {isSeeding ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-            Criar Alunos de Teste
-          </button>
+      <header className="bg-[#3b5998] border-b border-[#2d4373] py-6 px-4 sticky top-0 z-10 shadow-sm text-white text-center">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-bold tracking-tight uppercase">EMEF Tarsila do Amaral</h1>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto py-12 px-4">
+      <main className="max-w-4xl mx-auto py-8 px-4">
+        {/* Banner/Logo Image */}
+        <div className="mb-8 flex justify-center">
+          <img 
+            src="/src/assets/logo-emef.png" 
+            alt="EMEF Tarsila do Amaral Logo" 
+            className="max-w-xs md:max-w-sm rounded-2xl shadow-lg border-4 border-white"
+            onError={(e) => (e.currentTarget.style.display = 'none')}
+          />
+        </div>
         <AnimatePresence mode="wait">
           {!foundStudent && !isSuccess && (
             <motion.div
