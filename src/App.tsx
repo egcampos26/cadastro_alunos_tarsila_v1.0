@@ -411,11 +411,8 @@ export default function App() {
               className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100"
             >
               <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="text-[#3b5998] w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-bold text-[#0f254e]">Localizar Aluno</h2>
-                <p className="text-gray-500 mt-2">Digite o nome completo do aluno para acessar o formulário</p>
+                <h2 className="text-4xl font-extrabold text-[#0f254e] tracking-tight">Cadastro de Alunos</h2>
+                <p className="text-gray-500 mt-3 text-lg">Digite o nome completo do aluno para acessar o formulário</p>
               </div>
 
               <form onSubmit={handleSearch} className="space-y-4">
