@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FormEvent, Component, ErrorInfo, ReactNode } from 'react';
+import logoEmef from './assets/logo-emef.png';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -391,10 +392,13 @@ export default function App() {
         {/* Banner/Logo Image */}
         <div className="mb-8 flex justify-center">
           <img 
-            src="/src/assets/logo-emef.png" 
+            src={logoEmef} 
             alt="EMEF Tarsila do Amaral Logo" 
-            className="max-w-xs md:max-w-sm rounded-2xl shadow-lg border-4 border-white"
-            onError={(e) => (e.currentTarget.style.display = 'none')}
+            className="max-w-xs md:max-w-md h-auto rounded-3xl shadow-2xl border-8 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
+            onError={(e) => {
+              console.error("Erro ao carregar a logo:", e);
+              // Fallback se necessário, mas o import já resolve o caminho
+            }}
           />
         </div>
         <AnimatePresence mode="wait">
