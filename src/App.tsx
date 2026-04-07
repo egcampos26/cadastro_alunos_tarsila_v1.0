@@ -389,71 +389,72 @@ export default function App() {
       </header>
 
       <main className="max-w-4xl mx-auto py-8 px-4">
-        {/* Banner/Logo Image */}
-        <div className="mb-8 flex justify-center">
-          <img 
-            src={logoEmef} 
-            alt="EMEF Tarsila do Amaral Logo" 
-            className="max-w-xs md:max-w-md h-auto rounded-3xl shadow-2xl border-8 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
-            onError={(e) => {
-              console.error("Erro ao carregar a logo:", e);
-              // Fallback se necessário, mas o import já resolve o caminho
-            }}
-          />
-        </div>
         <AnimatePresence mode="wait">
           {!foundStudent && !isSuccess && (
             <motion.div
-              key="search"
+              key="search-container"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100"
             >
-              <div className="text-center mb-8">
-                <h2 className="text-4xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
-                <p className="text-gray-500 mt-3 text-lg">Digite o nome completo do aluno para acessar o formulário</p>
+              {/* Banner/Logo Image */}
+              <div className="mb-8 flex justify-center">
+                <img 
+                  src={logoEmef} 
+                  alt="EMEF Tarsila do Amaral Logo" 
+                  className="max-w-xs md:max-w-md h-auto rounded-3xl shadow-2xl border-8 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
+                  onError={(e) => {
+                    console.error("Erro ao carregar a logo:", e);
+                  }}
+                />
               </div>
 
-              <form onSubmit={handleSearch} className="space-y-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Nome completo do aluno"
-                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-lg"
-                    required
-                  />
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
+                <div className="text-center mb-8">
+                  <h2 className="text-4xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
+                  <p className="text-gray-500 mt-3 text-lg">Digite o nome completo do aluno para acessar o formulário</p>
                 </div>
-                
-                <button
-                  type="submit"
-                  disabled={isSearching}
-                  className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                >
-                  {isSearching ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Search className="w-5 h-5" />
-                      Buscar Aluno
-                    </>
-                  )}
-                </button>
-              </form>
 
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600"
-                >
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <p className="text-sm font-medium">{error}</p>
-                </motion.div>
-              )}
+                <form onSubmit={handleSearch} className="space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Nome completo do aluno"
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-lg"
+                      required
+                    />
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    disabled={isSearching}
+                    className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                  >
+                    {isSearching ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Search className="w-5 h-5" />
+                        Buscar Aluno
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600"
+                  >
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p className="text-sm font-medium">{error}</p>
+                  </motion.div>
+                )}
+              </div>
             </motion.div>
           )}
 
@@ -489,7 +490,7 @@ export default function App() {
                     <span className="text-xl font-black text-white">{foundStudent.period || '-'}</span>
                   </div>
                   <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center shadow-sm backdrop-blur-sm">
-                    <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider block mb-1">Nascimento</span>
+                    <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider block mb-1">Data de Nascimento</span>
                     <span className="text-xl font-black text-white">
                       {foundStudent.birthDate ? new Date(foundStudent.birthDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
                     </span>
@@ -505,17 +506,7 @@ export default function App() {
                     Informações do Aluno
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                    <div className="space-y-2 md:col-span-4">
-                      <label className="text-sm font-semibold text-gray-600">Data de Nascimento</label>
-                      <input
-                        type="date"
-                        required
-                        value={formData.birthDate}
-                        onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-4">
+                    <div className="space-y-2 md:col-span-6">
                       <label className="text-sm font-semibold text-gray-600">Gênero</label>
                       <select
                         required
@@ -528,7 +519,7 @@ export default function App() {
                         <option value="Feminino">Feminino</option>
                       </select>
                     </div>
-                    <div className="space-y-2 md:col-span-4">
+                    <div className="space-y-2 md:col-span-6">
                       <label className="text-sm font-semibold text-gray-600">Autodeclaração de Raça/Cor</label>
                       <select
                         required
