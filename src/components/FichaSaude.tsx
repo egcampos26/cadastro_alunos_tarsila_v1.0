@@ -22,6 +22,8 @@ export interface PrintConfig {
   fontFamily: string;
   baseFontSize: number;
   textColor: string;
+  textAlign: string;
+  textWrap: string;
   elementHeights: Record<string, number>;
 }
 
@@ -37,6 +39,8 @@ const defaultPrintConfig: PrintConfig = {
   fontFamily: 'sans-serif',
   baseFontSize: 11,
   textColor: '#000000',
+  textAlign: 'left',
+  textWrap: 'normal',
   elementHeights: {},
 };
 
@@ -51,7 +55,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
   });
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  const updateConfig = (key: keyof PrintConfig, val: number) => {
+  const updateConfig = (key: keyof PrintConfig, val: any) => {
     setPrintConfig(prev => {
       const next = { ...prev, [key]: val };
       localStorage.setItem('@PortalTarsila:FichaSaudeB_PrintConfig', JSON.stringify(next));
@@ -81,10 +85,10 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
     updateElementHeight(id, Math.round(rect.height));
   };
 
-  const getResizeProps = (id: string) => ({
+  const getResizeProps = (id: string, baseClassName: string = '') => ({
     style: { height: printConfig.elementHeights[id] ? `${printConfig.elementHeights[id]}px` : 'auto', resize: isPreviewMode ? 'vertical' as const : 'none' as const, overflow: 'hidden' as const },
     onMouseUp: (e: React.MouseEvent<HTMLElement>) => handleElementResize(e, id),
-    className: isPreviewMode ? 'hover:outline hover:outline-dashed hover:outline-blue-400' : ''
+    className: `${baseClassName} ${isPreviewMode ? 'hover:outline hover:outline-dashed hover:outline-blue-400' : ''}`.trim()
   });
 
   const [formData, setFormData] = useState<FichaSaudeData>({
@@ -289,6 +293,33 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 />
                 <span className="text-sm font-bold w-8 text-right">{printConfig.baseFontSize}</span>
               </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">Alinhamento Global</label>
+              <select 
+                value={printConfig.textAlign} 
+                onChange={e => updateConfig('textAlign', e.target.value)}
+                className="w-full border border-gray-300 rounded p-1.5 text-sm"
+              >
+                <option value="left">Esquerda (Padrão)</option>
+                <option value="justify">Justificado</option>
+                <option value="center">Centralizado</option>
+                <option value="right">Direita</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1 block">Quebra de Texto</label>
+              <select 
+                value={printConfig.textWrap} 
+                onChange={e => updateConfig('textWrap', e.target.value)}
+                className="w-full border border-gray-300 rounded p-1.5 text-sm"
+              >
+                <option value="normal">Normal (Padrão)</option>
+                <option value="nowrap">Não Quebrar (Linha única)</option>
+                <option value="break-spaces">Quebrar com Espaços</option>
+              </select>
             </div>
 
             <div>
@@ -618,6 +649,8 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                font-family: ${printConfig.fontFamily} !important;
                font-size: ${printConfig.baseFontSize}px !important;
                color: ${printConfig.textColor} !important;
+               text-align: ${printConfig.textAlign} !important;
+               white-space: ${printConfig.textWrap} !important;
             }
             .print-container .text-\\[11px\\] { font-size: 1em !important; }
             .print-container .text-\\[10px\\] { font-size: 0.9em !important; }
@@ -658,49 +691,57 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             <table className="w-full border-collapse border border-black text-[10px] mb-2">
               <tbody>
                 <tr>
-                  <td colSpan={4} className="border border-black p-1 align-top font-bold" {...getResizeProps('td_nome')}>
-                    Nome<br/>
+                  <td colSpan={4} {...getResizeProps('td_nome', "border border-black px-1 pt-0 pb-1 align-top font-bold")}>
+                    <div className="text-[0.85em] leading-tight">Nome</div>
                     <span className="font-normal">{student.name}</span>
                 </td>
-                <td className="border border-black p-1 align-top font-bold" {...getResizeProps('td_matricula')}>
-                  Nº de matrícula<br/>
+                <td {...getResizeProps('td_matricula', "border border-black px-1 pt-0 pb-1 align-top font-bold")}>
+                  <div className="text-[0.85em] leading-tight">Nº de matrícula</div>
                   <span className="font-normal">{student.id}</span>
                 </td>
               </tr>
               <tr>
-                <td className="border border-black p-1 font-bold whitespace-nowrap" {...getResizeProps('td_sexo')}>
-                  sexo &nbsp; 
-                  <span className="border border-black px-1.5 mx-0.5 text-center inline-block w-4 h-4 leading-4 font-bold">{student.gender === 'Masculino' ? 'X' : ''}</span> M
-                  <span className="border border-black px-1.5 mx-0.5 ml-2 text-center inline-block w-4 h-4 leading-4 font-bold">{student.gender === 'Feminino' ? 'X' : ''}</span> F
+                <td {...getResizeProps('td_sexo', "border border-black px-1 pt-0 pb-1 align-top font-bold whitespace-nowrap")}>
+                  <div className="text-[0.85em] leading-tight mb-0.5">sexo</div>
+                  <div className="flex items-center">
+                    <span className="relative border border-black text-center inline-block w-4 h-4 leading-4 font-bold mx-1 text-xs">
+                      M
+                      {student.gender === 'Masculino' && <span className="absolute inset-0 flex items-center justify-center font-black">X</span>}
+                    </span>
+                    <span className="relative border border-black text-center inline-block w-4 h-4 leading-4 font-bold mx-1 ml-2 text-xs">
+                      F
+                      {student.gender === 'Feminino' && <span className="absolute inset-0 flex items-center justify-center font-black">X</span>}
+                    </span>
+                  </div>
                 </td>
-                <td className="border border-black p-1 font-bold w-1/4" {...getResizeProps('td_cor')}>
-                  cor<br/>
+                <td {...getResizeProps('td_cor', "border border-black px-1 pt-0 pb-1 align-top font-bold w-1/4")}>
+                  <div className="text-[0.85em] leading-tight">cor</div>
                   <span className="font-normal">{student.race}</span>
                 </td>
-                <td colSpan={2} className="border border-black p-1 font-bold w-1/4" {...getResizeProps('td_nascimento')}>
-                  Data de Nascimento<br/>
+                <td colSpan={2} {...getResizeProps('td_nascimento', "border border-black px-1 pt-0 pb-1 align-top font-bold w-1/4")}>
+                  <div className="text-[0.85em] leading-tight">Data de Nascimento</div>
                   <span className="font-normal">{student.birthDate ? new Date(student.birthDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''}</span>
                 </td>
-                <td className="border border-black p-1 font-bold w-1/4" {...getResizeProps('td_idade')}>
-                  Idade<br/>
+                <td {...getResizeProps('td_idade', "border border-black px-1 pt-0 pb-1 align-top font-bold w-1/4")}>
+                  <div className="text-[0.85em] leading-tight">Idade</div>
                   <span className="font-normal">
                     {student.birthDate ? Math.floor((new Date().getTime() - new Date(student.birthDate).getTime()) / 31557600000) + ' anos' : ''}
                   </span>
                 </td>
               </tr>
               <tr>
-                <td colSpan={5} className="border border-black p-1 align-top font-bold" {...getResizeProps('td_mae')}>
-                  Nome da mãe / responsável<br/>
+                <td colSpan={5} {...getResizeProps('td_mae', "border border-black px-1 pt-0 pb-1 align-top font-bold")}>
+                  <div className="text-[0.85em] leading-tight">Nome da mãe / responsável</div>
                   <span className="font-normal">{student.guardianName || student.motherName}</span>
                 </td>
               </tr>
               <tr>
-                <td colSpan={4} className="border border-black p-1 align-top font-bold" {...getResizeProps('td_endereco')}>
-                  Endereço<br/>
+                <td colSpan={4} {...getResizeProps('td_endereco', "border border-black px-1 pt-0 pb-1 align-top font-bold")}>
+                  <div className="text-[0.85em] leading-tight">Endereço</div>
                   <span className="font-normal">{student.street}, {student.number} {student.complement} - {student.neighborhood} - {student.city}</span>
                 </td>
-                <td className="border border-black p-1 align-top font-bold" {...getResizeProps('td_fone')}>
-                  Fone<br/>
+                <td {...getResizeProps('td_fone', "border border-black px-1 pt-0 pb-1 align-top font-bold")}>
+                  <div className="text-[0.85em] leading-tight">Fone</div>
                   <span className="font-normal">{student.guardianPhone || student.motherPhone}</span>
                 </td>
               </tr>
@@ -724,7 +765,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <PrintLine val={formData.q1_problema_nascimento ? formData.q1_qual : ''} width="w-48" />
                 </div>
                 
-                <div className="pt-1" {...getResizeProps('q2')}>
+                <div {...getResizeProps('q2', "pt-1")}>
                   2 – Teve diagnóstico de anemia nos primeiros dois anos de vida? &nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={!formData.q2_anemia} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q2_anemia} label="Sim" />
@@ -737,7 +778,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <div className="border-b border-black w-full h-4 relative -top-1"><span className="absolute bottom-0 left-0">{formData.q3_internado ? formData.q3_motivo_idade : ''}</span></div>
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q4')}>
+                <div {...getResizeProps('q4', "pt-0")}>
                   4 – Tem algum problema de saúde? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q4_problema_saude} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q4_problema_saude} label="Sim, qual?" /> <PrintLine val={formData.q4_problema_saude ? formData.q4_qual : ''} width="w-64" />
@@ -750,7 +791,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <div className="border-b border-black w-full h-4 relative -top-1"><span className="absolute bottom-0 left-0">{formData.q5_tratamento ? formData.q5_qual_onde : ''}</span></div>
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q6')}>
+                <div {...getResizeProps('q6', "pt-0")}>
                   6 – Necessita de dieta especial? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q6_dieta} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q6_dieta} label="Sim, " /> <span className="underline text-blue-800">por que?</span> <PrintLine val={formData.q6_dieta ? formData.q6_por_que : ''} width="w-64" />
@@ -770,21 +811,21 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   </div>
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q8')}>
+                <div {...getResizeProps('q8', "pt-0")}>
                   8 – <span className="underline text-blue-800">Pode praticar</span> atividades físicas? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={formData.q8_atividade_fisica} label="Sim" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={!formData.q8_atividade_fisica} label="Não, " /> <span className="underline text-blue-800">por que?</span> 
                   <div className="border-b border-black w-full h-4 relative -top-1"><span className="absolute bottom-0 left-0">{!formData.q8_atividade_fisica ? formData.q8_nao_por_que : ''}</span></div>
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q9')}>
+                <div {...getResizeProps('q9', "pt-0")}>
                   9 – Existe algum problema de saúde na <span className="underline text-blue-800">família ?</span> &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q9_problema_familia} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q9_problema_familia} label="Sim Qual?" /> <PrintLine val={formData.q9_problema_familia ? formData.q9_qual : ''} width="w-48" />
                   <div className="border-b border-black w-full h-4"></div>
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q10')}>
+                <div {...getResizeProps('q10', "pt-0")}>
                   <span className="underline text-blue-800">10 – Qual é</span> a Unidade Básica de Saúde que utiliza? <PrintLine val={formData.q10_ubs} width="w-64" />
                 </div>
 
@@ -799,7 +840,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <PrintLine val={formData.q12_medicamento_febre} width="w-1/2" /> Dose: <PrintLine val={formData.q12_dose} width="w-1/3" />
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q13')}>
+                <div {...getResizeProps('q13', "pt-0")}>
                   13 – Tem algum tipo de alergia? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q13_alergia} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q13_alergia} label="Sim, qual?" />
@@ -812,13 +853,13 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   </div>
                 </div>
 
-                <div className="pt-0" {...getResizeProps('q14')}>
+                <div {...getResizeProps('q14', "pt-0")}>
                   14 – Informação de problemas identificados na vivência escolar (ex: cognitivo, afetivo)
                   <div className="border-b border-black w-full h-4 relative"><span className="absolute bottom-0 left-0">{formData.q14_vivencia}</span></div>
                   <div className="border-b border-black w-full h-4"></div>
                 </div>
 
-                <div className="pt-0 pb-1" {...getResizeProps('q15')}>
+                <div {...getResizeProps('q15', "pt-0 pb-1")}>
                   15 – Em caso de doença, a escola deverá chamar:<br/>
                   <div className="flex justify-between mt-1">
                     <span className="w-2/3">Nome <PrintLine val={formData.q15_emergencia_nome_1} width="w-[80%]" /></span>
@@ -849,7 +890,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 <tr>
                   <td className="border border-black p-1 w-1/4">Anemia <span className="float-right"><PrintCheck checked={!formData.diag_anemia} label="Não"/> &nbsp;&nbsp;<PrintCheck checked={formData.diag_anemia} label="Sim"/></span></td>
                   <td className="border border-black p-1 w-1/4">Doença Celíaca <span className="float-right"><PrintCheck checked={!formData.diag_celiaca} label="Não"/> &nbsp;&nbsp;<PrintCheck checked={formData.diag_celiaca} label="Sim"/></span></td>
-                  <td rowSpan={4} colSpan={2} className="border-2 border-black p-1 text-center align-top relative w-1/2" {...getResizeProps('td_especificar_diag')}>
+                  <td colSpan={2} rowSpan={4} {...getResizeProps('td_especificar_diag', "border-2 border-black p-1 text-center align-top relative w-1/2")}>
                     <div className="font-bold mb-1 border-b border-black pb-1">Especificar doença/tratamento*</div>
                     <div className="text-left">{formData.diag_especificar}</div>
                   </td>
@@ -883,7 +924,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <td className="border-r border-black p-1" colSpan={2}></td>
                 </tr>
                 <tr>
-                  <td colSpan={4} className="border border-black p-1 h-6" {...getResizeProps('td_outra_doenca')}>Outra doença * <span className="ml-2 font-bold">{formData.diag_outra_doenca ? 'Sim' : ''}</span></td>
+                  <td colSpan={4} {...getResizeProps('td_outra_doenca', "border border-black p-1 h-6")}>Outra doença * <span className="ml-2 font-bold">{formData.diag_outra_doenca ? 'Sim' : ''}</span></td>
                 </tr>
               </tbody>
             </table>
