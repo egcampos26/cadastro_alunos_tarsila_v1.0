@@ -506,6 +506,60 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </div>
       </div>
 
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-lg">Ajustes Finos de Impressão</h3>
+              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-red-500">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Altura da Página 1 <span>{printConfig.page1Height}mm</span></label>
+                <input type="range" min="200" max="297" value={printConfig.page1Height} onChange={e => updateConfig('page1Height', Number(e.target.value))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Altura da Página 2 <span>{printConfig.page2Height}mm</span></label>
+                <input type="range" min="200" max="297" value={printConfig.page2Height} onChange={e => updateConfig('page2Height', Number(e.target.value))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Largura da Caixa Unidade Educacional <span>{printConfig.headerBoxWidth}px</span></label>
+                <input type="range" min="150" max="300" value={printConfig.headerBoxWidth} onChange={e => updateConfig('headerBoxWidth', Number(e.target.value))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Espaçamento Vertical das Perguntas <span>{printConfig.questionsSpacing}px</span></label>
+                <input type="range" min="0" max="20" value={printConfig.questionsSpacing} onChange={e => updateConfig('questionsSpacing', Number(e.target.value))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Posição Horizontal do Título <span>{printConfig.titleLeftShift}px</span></label>
+                <input type="range" min="-50" max="100" value={printConfig.titleLeftShift} onChange={e => updateConfig('titleLeftShift', Number(e.target.value))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Altura da Caixa de Perguntas <span>offset: {printConfig.greyBoxSubHeight}px</span></label>
+                <input type="range" min="100" max="300" value={printConfig.greyBoxSubHeight} onChange={e => updateConfig('greyBoxSubHeight', Number(e.target.value))} className="w-full" />
+              </div>
+              <div>
+                <label className="text-sm font-semibold flex justify-between">Tamanho do Brasão <span>L: {printConfig.logoWidth} / A: {printConfig.logoHeight}</span></label>
+                <div className="flex gap-2">
+                   <input type="range" min="30" max="100" value={printConfig.logoWidth} onChange={e => updateConfig('logoWidth', Number(e.target.value))} className="w-1/2" />
+                   <input type="range" min="30" max="100" value={printConfig.logoHeight} onChange={e => updateConfig('logoHeight', Number(e.target.value))} className="w-1/2" />
+                </div>
+              </div>
+              
+              <button onClick={() => {
+                 localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
+                 setPrintConfig(defaultPrintConfig);
+              }} className="w-full mt-4 text-sm text-red-600 border border-red-200 rounded p-2 hover:bg-red-50">
+                Restaurar Padrões Originais
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LAYOUT DE IMPRESSÃO - Réplica exata (Visível apenas ao imprimir) */}
       <div className="hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-[10mm] text-[11px] leading-tight font-sans" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
         <style type="text/css" media="print">
@@ -514,60 +568,6 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           `}
         </style>
-
-        {showSettings && (
-          <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center print:hidden">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-lg">Ajustes Finos de Impressão</h3>
-                <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-red-500">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Altura da Página 1 <span>{printConfig.page1Height}mm</span></label>
-                  <input type="range" min="200" max="297" value={printConfig.page1Height} onChange={e => updateConfig('page1Height', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Altura da Página 2 <span>{printConfig.page2Height}mm</span></label>
-                  <input type="range" min="200" max="297" value={printConfig.page2Height} onChange={e => updateConfig('page2Height', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Largura da Caixa Unidade Educacional <span>{printConfig.headerBoxWidth}px</span></label>
-                  <input type="range" min="150" max="300" value={printConfig.headerBoxWidth} onChange={e => updateConfig('headerBoxWidth', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Espaçamento Vertical das Perguntas <span>{printConfig.questionsSpacing}px</span></label>
-                  <input type="range" min="0" max="20" value={printConfig.questionsSpacing} onChange={e => updateConfig('questionsSpacing', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Posição Horizontal do Título <span>{printConfig.titleLeftShift}px</span></label>
-                  <input type="range" min="-50" max="100" value={printConfig.titleLeftShift} onChange={e => updateConfig('titleLeftShift', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Altura da Caixa de Perguntas <span>offset: {printConfig.greyBoxSubHeight}px</span></label>
-                  <input type="range" min="100" max="300" value={printConfig.greyBoxSubHeight} onChange={e => updateConfig('greyBoxSubHeight', Number(e.target.value))} className="w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold flex justify-between">Tamanho do Brasão <span>L: {printConfig.logoWidth} / A: {printConfig.logoHeight}</span></label>
-                  <div className="flex gap-2">
-                     <input type="range" min="30" max="100" value={printConfig.logoWidth} onChange={e => updateConfig('logoWidth', Number(e.target.value))} className="w-1/2" />
-                     <input type="range" min="30" max="100" value={printConfig.logoHeight} onChange={e => updateConfig('logoHeight', Number(e.target.value))} className="w-1/2" />
-                  </div>
-                </div>
-                
-                <button onClick={() => {
-                   localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
-                   setPrintConfig(defaultPrintConfig);
-                }} className="w-full mt-4 text-sm text-red-600 border border-red-200 rounded p-2 hover:bg-red-50">
-                  Restaurar Padrões Originais
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         
         {/* === PÁGINA 1 === */}
         <div className="box-border relative break-after-page" style={{ height: `${printConfig.page1Height}mm` }}>
