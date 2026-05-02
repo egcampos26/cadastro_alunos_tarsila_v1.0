@@ -37,7 +37,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
     const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
     return saved ? JSON.parse(saved) : defaultPrintConfig;
   });
-  const [showSettings, setShowSettings] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   const updateConfig = (key: keyof PrintConfig, val: number) => {
     setPrintConfig(prev => {
@@ -45,6 +45,12 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
       localStorage.setItem('@PortalTarsila:FichaSaudeB_PrintConfig', JSON.stringify(next));
       return next;
     });
+  };
+
+  const handleResize = (e: React.MouseEvent<HTMLDivElement>, keys: {w?: keyof PrintConfig, h?: keyof PrintConfig}) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (keys.w) updateConfig(keys.w, Math.round(rect.width));
+    if (keys.h) updateConfig(keys.h, Math.round(rect.height));
   };
 
   const [formData, setFormData] = useState<FichaSaudeData>({
@@ -194,8 +200,8 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </button>
         <h2 className="text-xl font-bold text-white uppercase">Ficha de Saúde B</h2>
         <div className="flex gap-3">
-          <button onClick={() => setShowSettings(true)} className="flex items-center gap-2 bg-gray-200 text-[#0f254e] px-4 py-2 rounded-lg font-bold hover:bg-gray-300 transition-colors shadow-sm">
-            <Settings className="w-4 h-4" /> Layout
+          <button onClick={() => setIsPreviewMode(!isPreviewMode)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-colors shadow-sm ${isPreviewMode ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500' : 'bg-gray-200 text-[#0f254e] hover:bg-gray-300'}`}>
+            <Settings className="w-4 h-4" /> {isPreviewMode ? 'Voltar ao Formulário' : 'Visualizar Layout'}
           </button>
           <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-white text-[#3b5998] px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar
@@ -212,8 +218,15 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </div>
       )}
 
+      {isPreviewMode && (
+        <div className="bg-yellow-50 text-yellow-800 p-4 text-center text-sm font-bold border-b border-yellow-200 print:hidden flex items-center justify-center gap-2">
+          <Settings className="w-5 h-5" /> 
+          Você está no Modo de Edição Visual. Clique e arraste o canto inferior direito do Brasão e da Unidade Educacional para redimensioná-los. As alterações são salvas automaticamente!
+        </div>
+      )}
+
       {/* FORMULÁRIO TELA (Screen Only) */}
-      <div className="p-4 md:p-8 print:hidden max-h-[80vh] overflow-y-auto bg-gray-50 text-sm">
+      <div className={`p-4 md:p-8 max-h-[80vh] overflow-y-auto bg-gray-50 text-sm ${isPreviewMode ? 'hidden' : 'print:hidden'}`}>
         <div className="max-w-4xl mx-auto space-y-8 bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200">
           
           <section>
@@ -506,73 +519,20 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </div>
       </div>
 
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center print:hidden">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg">Ajustes Finos de Impressão</h3>
-              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-red-500">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Altura da Página 1 <span>{printConfig.page1Height}mm</span></label>
-                <input type="range" min="200" max="297" value={printConfig.page1Height} onChange={e => updateConfig('page1Height', Number(e.target.value))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Altura da Página 2 <span>{printConfig.page2Height}mm</span></label>
-                <input type="range" min="200" max="297" value={printConfig.page2Height} onChange={e => updateConfig('page2Height', Number(e.target.value))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Largura da Caixa Unidade Educacional <span>{printConfig.headerBoxWidth}px</span></label>
-                <input type="range" min="150" max="300" value={printConfig.headerBoxWidth} onChange={e => updateConfig('headerBoxWidth', Number(e.target.value))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Espaçamento Vertical das Perguntas <span>{printConfig.questionsSpacing}px</span></label>
-                <input type="range" min="0" max="20" value={printConfig.questionsSpacing} onChange={e => updateConfig('questionsSpacing', Number(e.target.value))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Posição Horizontal do Título <span>{printConfig.titleLeftShift}px</span></label>
-                <input type="range" min="-50" max="100" value={printConfig.titleLeftShift} onChange={e => updateConfig('titleLeftShift', Number(e.target.value))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Altura da Caixa de Perguntas <span>offset: {printConfig.greyBoxSubHeight}px</span></label>
-                <input type="range" min="100" max="300" value={printConfig.greyBoxSubHeight} onChange={e => updateConfig('greyBoxSubHeight', Number(e.target.value))} className="w-full" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold flex justify-between">Tamanho do Brasão <span>L: {printConfig.logoWidth} / A: {printConfig.logoHeight}</span></label>
-                <div className="flex gap-2">
-                   <input type="range" min="30" max="100" value={printConfig.logoWidth} onChange={e => updateConfig('logoWidth', Number(e.target.value))} className="w-1/2" />
-                   <input type="range" min="30" max="100" value={printConfig.logoHeight} onChange={e => updateConfig('logoHeight', Number(e.target.value))} className="w-1/2" />
-                </div>
-              </div>
-              
-              <button onClick={() => {
-                 localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
-                 setPrintConfig(defaultPrintConfig);
-              }} className="w-full mt-4 text-sm text-red-600 border border-red-200 rounded p-2 hover:bg-red-50">
-                Restaurar Padrões Originais
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* LAYOUT DE IMPRESSÃO - Réplica exata (Visível apenas ao imprimir) */}
-      <div className="hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-[10mm] text-[11px] leading-tight font-sans" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+      {/* LAYOUT DE IMPRESSÃO - Réplica exata */}
+      <div className={isPreviewMode ? 'block my-8 shadow-2xl border border-gray-300 mx-auto w-[210mm] bg-white text-black p-[10mm] text-[11px] leading-tight font-sans relative' : 'hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-[10mm] text-[11px] leading-tight font-sans'} style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
         <style type="text/css" media="print">
           {`
             @page { size: A4; margin: 0; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            ::-webkit-resizer { display: none; }
           `}
         </style>
         
         {/* === PÁGINA 1 === */}
         <div className="box-border relative break-after-page" style={{ height: `${printConfig.page1Height}mm` }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="border border-black flex items-center justify-center text-[10px] text-center font-bold mt-2" style={{ width: `${printConfig.logoWidth}px`, height: `${printConfig.logoHeight}px` }}>
+            <div onMouseUp={(e) => handleResize(e, {w: 'logoWidth', h: 'logoHeight'})} className={`border border-black flex items-center justify-center text-[10px] text-center font-bold mt-2 ${isPreviewMode ? 'hover:outline hover:outline-blue-500' : ''}`} style={{ width: `${printConfig.logoWidth}px`, height: `${printConfig.logoHeight}px`, resize: isPreviewMode ? 'both' : 'none', overflow: 'hidden' }}>
               BRASÃO
             </div>
             <div className="flex-1 text-center font-bold text-[13px] tracking-wide pt-1 relative" style={{ left: `${printConfig.titleLeftShift}px` }}>
@@ -580,7 +540,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
               <div className="mt-1 text-[15px] tracking-widest">FICHA DE <span className="underline">SAÚDE</span> <span className="text-3xl font-black">B</span></div>
               <div className="text-xs font-bold mt-0.5">EMEI / EMEF<br/><span className="font-normal text-[11px]">(4 a 14 anos)</span></div>
             </div>
-            <div className="border-2 border-black p-1.5 text-[11px] h-14 font-bold mt-3" style={{ width: `${printConfig.headerBoxWidth}px` }}>
+            <div onMouseUp={(e) => handleResize(e, {w: 'headerBoxWidth'})} className={`border-2 border-black p-1.5 text-[11px] h-14 font-bold mt-3 ${isPreviewMode ? 'hover:outline hover:outline-blue-500' : ''}`} style={{ width: `${printConfig.headerBoxWidth}px`, resize: isPreviewMode ? 'horizontal' : 'none', overflow: 'hidden' }}>
               Unidade Educacional<br/>
               <span className="font-normal">EMEF Tarsila do Amaral</span>
             </div>
