@@ -16,6 +16,9 @@ export interface ElementStyle {
   isUnderline?: boolean;
   textAlign?: string;
   textWrap?: string;
+  fontFamily?: string;
+  fontSize?: number;
+  textColor?: string;
 }
 
 export interface PrintConfig {
@@ -409,9 +412,11 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   </div>
 
                   <button onClick={() => {
-                      localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
-                      setPrintConfig(defaultPrintConfig);
-                      setSelectedElementId(null);
+                      if (window.confirm('Tem certeza de que deseja apagar todas as personalizações e restaurar a Ficha para os padrões iniciais? Essa ação não pode ser desfeita.')) {
+                        localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
+                        setPrintConfig(defaultPrintConfig);
+                        setSelectedElementId(null);
+                      }
                     }} className="w-full mt-2 text-xs text-red-600 border border-red-200 rounded p-2 hover:bg-red-50 font-bold transition-colors">
                       Restaurar Padrões Iniciais
                   </button>
@@ -432,6 +437,51 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                         <button onClick={() => updateElementStyle(id, { isBold: style.isBold === undefined ? !printConfig.globalIsBold : !style.isBold })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.isBold ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} title="Negrito"><Bold size={16} /></button>
                         <button onClick={() => updateElementStyle(id, { isItalic: style.isItalic === undefined ? !printConfig.globalIsItalic : !style.isItalic })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.isItalic ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} title="Itálico"><Italic size={16} /></button>
                         <button onClick={() => updateElementStyle(id, { isUnderline: style.isUnderline === undefined ? !printConfig.globalIsUnderline : !style.isUnderline })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.isUnderline ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} title="Sublinhado"><Underline size={16} /></button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Fonte da Caixa</label>
+                      <select 
+                        value={style.fontFamily || ''} 
+                        onChange={e => updateElementStyle(id, { fontFamily: e.target.value })}
+                        className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                      >
+                        <option value="">Usar Global</option>
+                        <option value="sans-serif">Padrão (Sans-serif)</option>
+                        <option value="Arial, sans-serif">Arial</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="Roboto, sans-serif">Roboto</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Tamanho da Fonte (px)</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="range" 
+                          min="8" max="24" step="0.5"
+                          value={style.fontSize || printConfig.baseFontSize} 
+                          onChange={e => updateElementStyle(id, { fontSize: Number(e.target.value) })}
+                          className="flex-1"
+                        />
+                        <span className="text-sm font-bold w-8 text-right">{style.fontSize || printConfig.baseFontSize}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Cor do Texto</label>
+                      <div className="flex gap-2 items-center">
+                        <input 
+                          type="color" 
+                          value={style.textColor || printConfig.textColor} 
+                          onChange={e => updateElementStyle(id, { textColor: e.target.value })}
+                          className="w-full h-8 cursor-pointer rounded"
+                        />
+                        {style.textColor && (
+                          <button onClick={() => updateElementStyle(id, { textColor: undefined })} className="text-xs text-red-500 border border-red-200 rounded px-2 h-8 hover:bg-red-50">Resetar</button>
+                        )}
                       </div>
                     </div>
 
@@ -801,6 +851,9 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 ${style.isUnderline !== undefined ? `text-decoration: ${style.isUnderline ? 'underline' : 'none'} !important;` : ''}
                 ${style.textAlign ? `text-align: ${style.textAlign} !important;` : ''}
                 ${style.textWrap ? `white-space: ${style.textWrap} !important;` : ''}
+                ${style.fontFamily ? `font-family: ${style.fontFamily} !important;` : ''}
+                ${style.fontSize ? `font-size: ${style.fontSize}px !important;` : ''}
+                ${style.textColor ? `color: ${style.textColor} !important;` : ''}
               }
             `).join('\n')}
             
