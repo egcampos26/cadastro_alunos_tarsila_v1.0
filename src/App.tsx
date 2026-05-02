@@ -907,13 +907,17 @@ export default function App() {
                     Informações de Saúde
                   </h3>
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-gray-600">Alergias ou Observações Médicas</label>
-                    <textarea
-                      value={formData.healthInfo}
-                      onChange={(e) => setFormData({ ...formData, healthInfo: e.target.value })}
-                      placeholder="Descreva se o aluno possui alergias, toma medicamentos contínuos ou outras observações..."
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all min-h-[120px]"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => window.open('#', '_blank')}
+                      className="w-full bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1967d2] border border-[#a8c7fa] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Activity className="w-5 h-5" />
+                      Acessar Informações de Saúde
+                    </button>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      Clique no botão acima para preencher ou visualizar as informações de saúde em uma nova página.
+                    </p>
                   </div>
                 </section>
 
