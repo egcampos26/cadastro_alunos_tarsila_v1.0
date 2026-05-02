@@ -479,15 +479,15 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         {/* === PÁGINA 1 === */}
         <div className="box-border relative break-after-page h-[277mm]">
           <div className="flex justify-between items-start mb-2">
-            <div className="w-16 h-16 border flex items-center justify-center text-[10px] text-center overflow-hidden font-bold">
+            <div className="w-[60px] h-[70px] border border-black flex items-center justify-center text-[10px] text-center font-bold mt-2">
               BRASÃO
             </div>
-            <div className="flex-1 text-center font-bold text-sm tracking-wide">
+            <div className="flex-1 text-center font-bold text-[13px] tracking-wide pt-1 relative left-8">
               PREFEITURA DO MUNICÍPIO DE SÃO PAULO
-              <div className="mt-1 text-base">FICHA DE <span className="underline">SAÚDE</span> <span className="text-2xl">B</span></div>
-              <div className="text-xs">EMEI / EMEF<br/>(4 a 14 anos)</div>
+              <div className="mt-1 text-[15px] tracking-widest">FICHA DE <span className="underline">SAÚDE</span> <span className="text-3xl font-black">B</span></div>
+              <div className="text-xs font-bold mt-0.5">EMEI / EMEF<br/><span className="font-normal text-[11px]">(4 a 14 anos)</span></div>
             </div>
-            <div className="border border-black p-1 w-48 text-[10px] h-12 font-bold">
+            <div className="border-2 border-black p-1.5 w-[220px] text-[11px] h-14 font-bold mt-3">
               Unidade Educacional<br/>
               <span className="font-normal">EMEF Tarsila do Amaral</span>
             </div>
@@ -545,17 +545,17 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </tbody>
           </table>
 
-          <div className="flex relative mt-4 h-full">
-            <div className="absolute -right-3 -bottom-3 bg-[#999999] w-full h-full z-0"></div>
+          <div className="flex relative mt-2 mb-2" style={{ height: 'calc(277mm - 185px)' }}>
+            <div className="absolute -right-[6px] -bottom-[6px] bg-[#999999] w-full h-full z-0"></div>
             
-            <div className="flex w-full border border-black bg-white z-10 relative">
-              <div className="w-10 border-r border-black relative flex items-center justify-center bg-gray-50">
-                <div className="-rotate-90 font-bold whitespace-nowrap tracking-widest text-lg absolute">
+            <div className="flex w-full border border-black bg-white z-10 relative h-full">
+              <div className="w-11 border-r border-black relative flex items-center justify-center">
+                <div className="-rotate-90 font-black whitespace-nowrap tracking-widest text-lg absolute">
                   Informações gerais
                 </div>
               </div>
               
-              <div className="flex-1 p-4 space-y-4 relative z-10 text-xs leading-relaxed">
+              <div className="flex-1 p-2 px-3 space-y-[9px] relative z-10 text-[11px] leading-tight overflow-hidden">
                 <div>
                   1 – Teve algum problema de saúde ao nascimento? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q1_problema_nascimento} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -576,7 +576,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <div className="border-b border-black w-full h-4 relative -top-1"><span className="absolute bottom-0 left-0">{formData.q3_internado ? formData.q3_motivo_idade : ''}</span></div>
                 </div>
 
-                <div className="pt-1">
+                <div className="pt-0">
                   4 – Tem algum problema de saúde? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q4_problema_saude} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q4_problema_saude} label="Sim, qual?" /> <PrintLine val={formData.q4_problema_saude ? formData.q4_qual : ''} width="w-64" />
@@ -589,7 +589,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <div className="border-b border-black w-full h-4 relative -top-1"><span className="absolute bottom-0 left-0">{formData.q5_tratamento ? formData.q5_qual_onde : ''}</span></div>
                 </div>
 
-                <div className="pt-1">
+                <div className="pt-0">
                   6 – Necessita de dieta especial? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q6_dieta} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q6_dieta} label="Sim, " /> <span className="underline text-blue-800">por que?</span> <PrintLine val={formData.q6_dieta ? formData.q6_por_que : ''} width="w-64" />
@@ -609,21 +609,21 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   </div>
                 </div>
 
-                <div className="pt-1">
+                <div className="pt-0">
                   8 – <span className="underline text-blue-800">Pode praticar</span> atividades físicas? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={formData.q8_atividade_fisica} label="Sim" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={!formData.q8_atividade_fisica} label="Não, " /> <span className="underline text-blue-800">por que?</span> 
                   <div className="border-b border-black w-full h-4 relative -top-1"><span className="absolute bottom-0 left-0">{!formData.q8_atividade_fisica ? formData.q8_nao_por_que : ''}</span></div>
                 </div>
 
-                <div className="pt-1">
+                <div className="pt-0">
                   9 – Existe algum problema de saúde na <span className="underline text-blue-800">família ?</span> &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q9_problema_familia} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q9_problema_familia} label="Sim Qual?" /> <PrintLine val={formData.q9_problema_familia ? formData.q9_qual : ''} width="w-48" />
                   <div className="border-b border-black w-full h-4"></div>
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-0">
                   <span className="underline text-blue-800">10 – Qual é</span> a Unidade Básica de Saúde que utiliza? <PrintLine val={formData.q10_ubs} width="w-64" />
                 </div>
 
@@ -638,7 +638,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   <PrintLine val={formData.q12_medicamento_febre} width="w-1/2" /> Dose: <PrintLine val={formData.q12_dose} width="w-1/3" />
                 </div>
 
-                <div className="pt-1">
+                <div className="pt-0">
                   13 – Tem algum tipo de alergia? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q13_alergia} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                   <PrintCheck checked={formData.q13_alergia} label="Sim, qual?" />
@@ -651,13 +651,13 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                   </div>
                 </div>
 
-                <div className="pt-1">
+                <div className="pt-0">
                   14 – Informação de problemas identificados na vivência escolar (ex: cognitivo, afetivo)
                   <div className="border-b border-black w-full h-4 relative"><span className="absolute bottom-0 left-0">{formData.q14_vivencia}</span></div>
                   <div className="border-b border-black w-full h-4"></div>
                 </div>
 
-                <div className="pt-1 pb-2">
+                <div className="pt-0 pb-1">
                   15 – Em caso de doença, a escola deverá chamar:<br/>
                   <div className="flex justify-between mt-1">
                     <span className="w-2/3">Nome <PrintLine val={formData.q15_emergencia_nome_1} width="w-[80%]" /></span>
