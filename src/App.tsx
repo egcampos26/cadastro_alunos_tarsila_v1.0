@@ -61,6 +61,7 @@ import { Student } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Plus } from 'lucide-react';
 import { cn } from './lib/utils';
+import FichaSaude from './components/FichaSaude';
 
 // Helper to handle errors
 function handleError(error: unknown) {
@@ -77,6 +78,7 @@ export default function App() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isMotherMain, setIsMotherMain] = useState(false);
   const [isFatherMain, setIsFatherMain] = useState(false);
+  const [currentView, setCurrentView] = useState<'main' | 'saude'>('main');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -380,17 +382,22 @@ export default function App() {
 
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100">
+    <div className="min-h-screen bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100 print:bg-white">
       {/* Header */}
-      <header className="bg-[#3b5998] border-b border-[#2d4373] py-6 px-4 sticky top-0 z-10 shadow-sm text-white text-center">
+      <header className="bg-[#3b5998] border-b border-[#2d4373] py-6 px-4 sticky top-0 z-10 shadow-sm text-white text-center print:hidden">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold tracking-tight uppercase">EMEF Tarsila do Amaral</h1>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto py-8 px-4">
-        <AnimatePresence mode="wait">
-          {!foundStudent && !isSuccess && (
+      {currentView === 'saude' && foundStudent ? (
+        <main className="max-w-4xl mx-auto py-8 px-4">
+          <FichaSaude student={foundStudent} onBack={() => setCurrentView('main')} />
+        </main>
+      ) : (
+        <main className="max-w-4xl mx-auto py-8 px-4 print:hidden">
+          <AnimatePresence mode="wait">
+            {!foundStudent && !isSuccess && (
             <motion.div
               key="search-container"
               initial={{ opacity: 0, y: 20 }}
@@ -909,7 +916,7 @@ export default function App() {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => window.open('#', '_blank')}
+                      onClick={() => setCurrentView('saude')}
                       className="w-full bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1967d2] border border-[#a8c7fa] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
                     >
                       <Activity className="w-5 h-5" />
@@ -973,6 +980,7 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      )}
 
       {/* Footer */}
       <footer className="max-w-4xl mx-auto py-12 px-4 text-center text-gray-400 text-sm">
