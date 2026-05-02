@@ -43,7 +43,11 @@ const defaultPrintConfig: PrintConfig = {
 export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
   const [printConfig, setPrintConfig] = useState<PrintConfig>(() => {
     const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
-    return saved ? JSON.parse(saved) : defaultPrintConfig;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...defaultPrintConfig, ...parsed, elementHeights: parsed.elementHeights || {} };
+    }
+    return defaultPrintConfig;
   });
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
