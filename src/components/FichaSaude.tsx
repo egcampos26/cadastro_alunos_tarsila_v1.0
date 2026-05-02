@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X } from 'lucide-react';
+import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { FichaSaudeData, initialFichaSaudeData } from '../types/saude';
 import { Student } from '../types';
@@ -8,6 +8,14 @@ import { Student } from '../types';
 interface FichaSaudeProps {
   student: Student;
   onBack: () => void;
+}
+
+export interface ElementStyle {
+  isBold?: boolean;
+  isItalic?: boolean;
+  isUnderline?: boolean;
+  textAlign?: string;
+  textWrap?: string;
 }
 
 export interface PrintConfig {
@@ -24,7 +32,11 @@ export interface PrintConfig {
   textColor: string;
   textAlign: string;
   textWrap: string;
+  globalIsBold: boolean;
+  globalIsItalic: boolean;
+  globalIsUnderline: boolean;
   elementHeights: Record<string, number>;
+  elementStyles: Record<string, ElementStyle>;
 }
 
 const defaultPrintConfig: PrintConfig = {
@@ -41,7 +53,11 @@ const defaultPrintConfig: PrintConfig = {
   textColor: '#000000',
   textAlign: 'left',
   textWrap: 'normal',
+  globalIsBold: false,
+  globalIsItalic: false,
+  globalIsUnderline: false,
   elementHeights: {},
+  elementStyles: {},
 };
 
 export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
@@ -49,11 +65,17 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
     const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { ...defaultPrintConfig, ...parsed, elementHeights: parsed.elementHeights || {} };
+      return { 
+        ...defaultPrintConfig, 
+        ...parsed, 
+        elementHeights: parsed.elementHeights || {},
+        elementStyles: parsed.elementStyles || {}
+      };
     }
     return defaultPrintConfig;
   });
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
   const updateConfig = (key: keyof PrintConfig, val: any) => {
     setPrintConfig(prev => {
@@ -80,16 +102,45 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
     });
   };
 
+  const updateElementStyle = (id: string, styleUpdates: Partial<ElementStyle>) => {
+    setPrintConfig(prev => {
+      const next = {
+        ...prev,
+        elementStyles: {
+          ...prev.elementStyles,
+          [id]: { ...(prev.elementStyles[id] || {}), ...styleUpdates }
+        }
+      };
+      localStorage.setItem('@PortalTarsila:FichaSaudeB_PrintConfig', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleElementResize = (e: React.MouseEvent<HTMLElement>, id: string) => {
     const rect = e.currentTarget.getBoundingClientRect();
     updateElementHeight(id, Math.round(rect.height));
   };
 
-  const getResizeProps = (id: string, baseClassName: string = '') => ({
-    style: { height: printConfig.elementHeights[id] ? `${printConfig.elementHeights[id]}px` : 'auto', resize: isPreviewMode ? 'vertical' as const : 'none' as const, overflow: 'hidden' as const },
-    onMouseUp: (e: React.MouseEvent<HTMLElement>) => handleElementResize(e, id),
-    className: `${baseClassName} ${isPreviewMode ? 'hover:outline hover:outline-dashed hover:outline-blue-400' : ''}`.trim()
-  });
+  const getResizeProps = (id: string, baseClassName: string = '') => {
+    const isSelected = isPreviewMode && selectedElementId === id;
+    
+    return {
+      id,
+      onClick: (e: React.MouseEvent) => {
+        if (isPreviewMode) {
+          e.stopPropagation();
+          setSelectedElementId(id);
+        }
+      },
+      style: { 
+        height: printConfig.elementHeights[id] ? `${printConfig.elementHeights[id]}px` : 'auto', 
+        resize: isPreviewMode ? 'vertical' as const : 'none' as const, 
+        overflow: 'hidden' as const 
+      },
+      onMouseUp: (e: React.MouseEvent<HTMLElement>) => handleElementResize(e, id),
+      className: `${baseClassName} ${isPreviewMode ? 'hover:outline hover:outline-dashed hover:outline-blue-400 cursor-pointer' : ''} ${isSelected ? 'outline outline-2 outline-blue-600 ring-4 ring-blue-200 z-10 relative' : ''}`.trim()
+    };
+  };
 
   const [formData, setFormData] = useState<FichaSaudeData>({
     ...initialFichaSaudeData,
@@ -263,83 +314,154 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             Você está no Modo de Edição Visual. Clique e arraste o canto inferior direito de QUALQUER caixa para redimensioná-la. As alterações são salvas automaticamente!
           </div>
 
-          <div className="fixed top-32 right-8 bg-white p-5 shadow-2xl rounded-xl z-50 border border-gray-200 print:hidden flex flex-col gap-4 w-64">
-            <div className="font-bold text-gray-700 border-b pb-2 mb-2">Tipografia Global</div>
+          <div className="fixed top-32 right-8 bg-white shadow-2xl rounded-xl z-50 border border-gray-200 print:hidden flex flex-col w-72 overflow-hidden">
+            <div className="flex border-b border-gray-200">
+              <button 
+                onClick={() => setSelectedElementId(null)}
+                className={`flex-1 py-3 text-xs font-bold transition-colors ${!selectedElementId ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+              >
+                Documento
+              </button>
+              <button 
+                className={`flex-1 py-3 text-xs font-bold transition-colors ${selectedElementId ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'bg-gray-50 text-gray-500 opacity-60 cursor-not-allowed'}`}
+                title="Clique em uma caixa no documento para ativá-la"
+              >
+                Caixa Atual
+              </button>
+            </div>
             
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Fonte do Documento</label>
-              <select 
-                value={printConfig.fontFamily} 
-                onChange={e => updateConfig('fontFamily', e.target.value as any)}
-                className="w-full border border-gray-300 rounded p-1.5 text-sm"
-              >
-                <option value="sans-serif">Padrão (Sans-serif)</option>
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="'Times New Roman', serif">Times New Roman</option>
-                <option value="'Courier New', monospace">Courier New</option>
-                <option value="Roboto, sans-serif">Roboto</option>
-              </select>
-            </div>
+            <div className="p-4 flex flex-col gap-4 max-h-[65vh] overflow-y-auto">
+              {!selectedElementId ? (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Fonte do Documento</label>
+                    <select 
+                      value={printConfig.fontFamily} 
+                      onChange={e => updateConfig('fontFamily', e.target.value as any)}
+                      className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                    >
+                      <option value="sans-serif">Padrão (Sans-serif)</option>
+                      <option value="Arial, sans-serif">Arial</option>
+                      <option value="'Times New Roman', serif">Times New Roman</option>
+                      <option value="'Courier New', monospace">Courier New</option>
+                      <option value="Roboto, sans-serif">Roboto</option>
+                    </select>
+                  </div>
 
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Tamanho Base (px)</label>
-              <div className="flex items-center gap-2">
-                <input 
-                  type="range" 
-                  min="8" max="16" step="0.5"
-                  value={printConfig.baseFontSize} 
-                  onChange={e => updateConfig('baseFontSize', Number(e.target.value))}
-                  className="flex-1"
-                />
-                <span className="text-sm font-bold w-8 text-right">{printConfig.baseFontSize}</span>
-              </div>
-            </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Tamanho Base (px)</label>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="range" 
+                        min="8" max="16" step="0.5"
+                        value={printConfig.baseFontSize} 
+                        onChange={e => updateConfig('baseFontSize', Number(e.target.value))}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-bold w-8 text-right">{printConfig.baseFontSize}</span>
+                    </div>
+                  </div>
 
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Alinhamento Global</label>
-              <select 
-                value={printConfig.textAlign} 
-                onChange={e => updateConfig('textAlign', e.target.value)}
-                className="w-full border border-gray-300 rounded p-1.5 text-sm"
-              >
-                <option value="left">Esquerda (Padrão)</option>
-                <option value="justify">Justificado</option>
-                <option value="center">Centralizado</option>
-                <option value="right">Direita</option>
-              </select>
-            </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Estilo de Texto Global</label>
+                    <div className="flex gap-2">
+                      <button onClick={() => updateConfig('globalIsBold', !printConfig.globalIsBold)} className={`flex-1 flex justify-center p-2 rounded border ${printConfig.globalIsBold ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200'}`}><Bold size={16} /></button>
+                      <button onClick={() => updateConfig('globalIsItalic', !printConfig.globalIsItalic)} className={`flex-1 flex justify-center p-2 rounded border ${printConfig.globalIsItalic ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200'}`}><Italic size={16} /></button>
+                      <button onClick={() => updateConfig('globalIsUnderline', !printConfig.globalIsUnderline)} className={`flex-1 flex justify-center p-2 rounded border ${printConfig.globalIsUnderline ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200'}`}><Underline size={16} /></button>
+                    </div>
+                  </div>
 
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Quebra de Texto</label>
-              <select 
-                value={printConfig.textWrap} 
-                onChange={e => updateConfig('textWrap', e.target.value)}
-                className="w-full border border-gray-300 rounded p-1.5 text-sm"
-              >
-                <option value="normal">Normal (Padrão)</option>
-                <option value="nowrap">Não Quebrar (Linha única)</option>
-                <option value="break-spaces">Quebrar com Espaços</option>
-              </select>
-            </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Alinhamento Global</label>
+                    <select 
+                      value={printConfig.textAlign} 
+                      onChange={e => updateConfig('textAlign', e.target.value)}
+                      className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                    >
+                      <option value="left">Esquerda (Padrão)</option>
+                      <option value="justify">Justificado</option>
+                      <option value="center">Centralizado</option>
+                      <option value="right">Direita</option>
+                    </select>
+                  </div>
 
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Cor do Texto</label>
-              <div className="flex gap-2">
-                <input 
-                  type="color" 
-                  value={printConfig.textColor} 
-                  onChange={e => updateConfig('textColor', e.target.value as any)}
-                  className="w-full h-8 cursor-pointer rounded"
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Quebra de Texto Global</label>
+                    <select 
+                      value={printConfig.textWrap} 
+                      onChange={e => updateConfig('textWrap', e.target.value)}
+                      className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                    >
+                      <option value="normal">Normal (Padrão)</option>
+                      <option value="nowrap">Não Quebrar (Linha única)</option>
+                      <option value="break-spaces">Quebrar com Espaços</option>
+                    </select>
+                  </div>
 
-            <button onClick={() => {
-                 localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
-                 setPrintConfig(defaultPrintConfig);
-              }} className="w-full mt-2 text-xs text-red-600 border border-red-200 rounded p-2 hover:bg-red-50 font-bold transition-colors">
-                Restaurar Padrões Iniciais
-            </button>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 mb-1 block">Cor do Texto</label>
+                    <input 
+                      type="color" 
+                      value={printConfig.textColor} 
+                      onChange={e => updateConfig('textColor', e.target.value as any)}
+                      className="w-full h-8 cursor-pointer rounded"
+                    />
+                  </div>
+
+                  <button onClick={() => {
+                      localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
+                      setPrintConfig(defaultPrintConfig);
+                      setSelectedElementId(null);
+                    }} className="w-full mt-2 text-xs text-red-600 border border-red-200 rounded p-2 hover:bg-red-50 font-bold transition-colors">
+                      Restaurar Padrões Iniciais
+                  </button>
+                </>
+              ) : (() => {
+                const id = selectedElementId as string;
+                const style = printConfig.elementStyles[id] || {};
+                return (
+                  <>
+                    <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded mb-1 border border-blue-100 flex justify-between items-center font-bold">
+                      Caixa Ativa
+                      <button onClick={() => setSelectedElementId(null)} className="hover:text-blue-900"><X size={14}/></button>
+                    </div>
+                    
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Estilo da Caixa</label>
+                      <div className="flex gap-2">
+                        <button onClick={() => updateElementStyle(id, { isBold: style.isBold === undefined ? !printConfig.globalIsBold : !style.isBold })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.isBold ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} title="Negrito"><Bold size={16} /></button>
+                        <button onClick={() => updateElementStyle(id, { isItalic: style.isItalic === undefined ? !printConfig.globalIsItalic : !style.isItalic })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.isItalic ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} title="Itálico"><Italic size={16} /></button>
+                        <button onClick={() => updateElementStyle(id, { isUnderline: style.isUnderline === undefined ? !printConfig.globalIsUnderline : !style.isUnderline })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.isUnderline ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`} title="Sublinhado"><Underline size={16} /></button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Alinhamento da Caixa</label>
+                      <div className="flex gap-2">
+                        <button onClick={() => updateElementStyle(id, { textAlign: 'left' })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.textAlign === 'left' ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}><AlignLeft size={16} /></button>
+                        <button onClick={() => updateElementStyle(id, { textAlign: 'center' })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.textAlign === 'center' ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}><AlignCenter size={16} /></button>
+                        <button onClick={() => updateElementStyle(id, { textAlign: 'right' })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.textAlign === 'right' ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}><AlignRight size={16} /></button>
+                        <button onClick={() => updateElementStyle(id, { textAlign: 'justify' })} className={`flex-1 flex justify-center p-2 rounded border transition-colors ${style.textAlign === 'justify' ? 'bg-blue-100 border-blue-400 text-blue-800' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}><AlignJustify size={16} /></button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 mb-1 block">Quebra de Texto</label>
+                      <select 
+                        value={style.textWrap || ''} 
+                        onChange={e => updateElementStyle(id, { textWrap: e.target.value })}
+                        className="w-full border border-gray-300 rounded p-1.5 text-sm"
+                      >
+                        <option value="">Usar Global</option>
+                        <option value="normal">Normal</option>
+                        <option value="nowrap">Não Quebrar (Linha única)</option>
+                        <option value="break-spaces">Quebrar com Espaços</option>
+                      </select>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </>
       )}
@@ -639,11 +761,19 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
       </div>
 
       {/* LAYOUT DE IMPRESSÃO - Réplica exata */}
-      <div className={`print-container ${isPreviewMode ? 'block my-8 shadow-2xl border border-gray-300 mx-auto w-[210mm] bg-white p-[10mm] leading-tight relative' : 'hidden print:block print:w-[210mm] print:mx-auto bg-white p-[10mm] leading-tight'}`} style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+      <div className={`print-container ${isPreviewMode ? 'block my-8 shadow-2xl border border-gray-300 mx-auto w-[210mm] bg-white p-[10mm] leading-tight relative' : 'hidden print:block print:w-[210mm] print:mx-auto bg-white p-[10mm] leading-tight'}`} onClick={() => isPreviewMode && setSelectedElementId(null)} style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
         <style type="text/css" media="all">
           {`
             @media print {
-              @page { size: A4; margin: 0; }
+              @page { size: A4 portrait; margin: 15mm; }
+              body { margin: 0; padding: 0; }
+              .print-hidden { display: none !important; }
+              * { overflow: visible !important; }
+              .print-container { overflow: visible !important; }
+            }
+            .break-after-page {
+               page-break-after: always;
+               break-after: page;
             }
             .print-container {
                font-family: ${printConfig.fontFamily} !important;
@@ -651,6 +781,9 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                color: ${printConfig.textColor} !important;
                text-align: ${printConfig.textAlign} !important;
                white-space: ${printConfig.textWrap} !important;
+               ${printConfig.globalIsBold ? 'font-weight: bold !important;' : ''}
+               ${printConfig.globalIsItalic ? 'font-style: italic !important;' : ''}
+               ${printConfig.globalIsUnderline ? 'text-decoration: underline !important;' : ''}
             }
             .print-container .text-\\[11px\\] { font-size: 1em !important; }
             .print-container .text-\\[10px\\] { font-size: 0.9em !important; }
@@ -660,6 +793,16 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             .print-container .text-sm { font-size: 1.15em !important; }
             .print-container .text-lg { font-size: 1.5em !important; }
             .print-container .text-3xl { font-size: 2.7em !important; }
+            
+            ${Object.entries(printConfig.elementStyles).map(([id, style]: [string, any]) => `
+              #${id} {
+                ${style.isBold !== undefined ? `font-weight: ${style.isBold ? 'bold' : 'normal'} !important;` : ''}
+                ${style.isItalic !== undefined ? `font-style: ${style.isItalic ? 'italic' : 'normal'} !important;` : ''}
+                ${style.isUnderline !== undefined ? `text-decoration: ${style.isUnderline ? 'underline' : 'none'} !important;` : ''}
+                ${style.textAlign ? `text-align: ${style.textAlign} !important;` : ''}
+                ${style.textWrap ? `white-space: ${style.textWrap} !important;` : ''}
+              }
+            `).join('\n')}
             
             .print-container * {
                font-family: inherit;
