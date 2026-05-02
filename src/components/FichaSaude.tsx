@@ -598,17 +598,15 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </tbody>
           </table>
 
-          <div className="flex relative mt-2 mb-2" style={{ height: `calc(${printConfig.page1Height}mm - ${printConfig.greyBoxSubHeight}px)` }}>
-            <div className="absolute -right-[6px] -bottom-[6px] bg-[#999999] w-full h-full z-0"></div>
+          <div className="flex mb-2">
+            <div className="w-6 mr-1 flex items-center justify-center font-bold text-xs relative">
+               <span className="-rotate-90 font-black whitespace-nowrap absolute tracking-widest text-lg">Informações gerais</span>
+            </div>
             
-            <div className="flex w-full border border-black bg-white z-10 relative h-full">
-              <div className="w-11 border-r border-black relative flex items-center justify-center">
-                <div className="-rotate-90 font-black whitespace-nowrap tracking-widest text-lg absolute">
-                  Informações gerais
-                </div>
-              </div>
+            <div className="flex-1 relative">
+              <div className="absolute -right-[6px] -bottom-[6px] bg-[#999999] w-full h-full z-0"></div>
               
-              <div className="flex-1 p-2 px-3 relative z-10 text-[11px] leading-tight overflow-hidden flex flex-col" style={{ gap: `${printConfig.questionsSpacing}px` }}>
+              <div className="border border-black bg-white z-10 relative h-full p-2 px-3 text-[11px] leading-tight overflow-hidden flex flex-col" style={{ gap: `${printConfig.questionsSpacing}px` }}>
                 <div>
                   1 – Teve algum problema de saúde ao nascimento? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q1_problema_nascimento} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
