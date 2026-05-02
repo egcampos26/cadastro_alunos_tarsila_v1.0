@@ -139,7 +139,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
 
   const PrintCheck = ({ checked, label, underline }: { checked: boolean, label?: string, underline?: boolean }) => (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
-      <span className="border border-black inline-block w-3 h-3 text-center leading-none text-[10px] font-bold">{checked ? 'X' : '\u00A0'}</span>
+      <span className="border border-black inline-block w-4 h-4 text-center leading-4 text-xs font-bold bg-white">{checked ? 'X' : '\u00A0'}</span>
       {label && <span className={underline ? "underline" : ""}>{label}</span>}
     </span>
   );
@@ -468,16 +468,16 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
       </div>
 
       {/* LAYOUT DE IMPRESSÃO - Réplica exata (Visível apenas ao imprimir) */}
-      <div className="hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-0 text-[10px] leading-tight font-sans">
+      <div className="hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-[10mm] text-[11px] leading-tight font-sans" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
         <style type="text/css" media="print">
           {`
-            @page { size: A4; margin: 10mm; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { size: A4; margin: 0; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           `}
         </style>
         
         {/* === PÁGINA 1 === */}
-        <div className="box-border relative break-after-page">
+        <div className="box-border relative break-after-page h-[277mm]">
           <div className="flex justify-between items-start mb-2">
             <div className="w-16 h-16 border flex items-center justify-center text-[10px] text-center overflow-hidden font-bold">
               BRASÃO
@@ -545,17 +545,17 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </tbody>
           </table>
 
-          <div className="flex relative mt-3">
-            <div className="absolute -right-2 -bottom-2 bg-gray-400 w-full h-full z-0"></div>
+          <div className="flex relative mt-4 h-full">
+            <div className="absolute -right-3 -bottom-3 bg-[#999999] w-full h-full z-0"></div>
             
             <div className="flex w-full border border-black bg-white z-10 relative">
-              <div className="w-8 border-r border-black relative flex items-center justify-center bg-gray-50">
-                <div className="-rotate-90 font-bold whitespace-nowrap tracking-widest text-sm absolute">
+              <div className="w-10 border-r border-black relative flex items-center justify-center bg-gray-50">
+                <div className="-rotate-90 font-bold whitespace-nowrap tracking-widest text-lg absolute">
                   Informações gerais
                 </div>
               </div>
               
-              <div className="flex-1 p-3 space-y-3 relative z-10 text-[11px] leading-snug">
+              <div className="flex-1 p-4 space-y-4 relative z-10 text-xs leading-relaxed">
                 <div>
                   1 – Teve algum problema de saúde ao nascimento? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q1_problema_nascimento} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -674,7 +674,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </div>
 
         {/* === PÁGINA 2 === */}
-        <div className="pt-2">
+        <div className="pt-0 h-[277mm] box-border">
           
           <div className="flex mb-3">
             <div className="w-6 mr-1 flex items-center justify-center font-bold text-xs relative">
@@ -897,12 +897,12 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </div>
           </div>
 
-          <div className="mt-4 font-bold flex justify-between text-xs">
+          <div className="mt-8 font-bold flex justify-between text-sm">
             <span>Responsável pelo preenchimento: <span className="underline">{formData.responsavel_preenchimento || '__________________________________________'}</span></span>
             <span>Data <span className="underline">{formData.data_preenchimento ? new Date(formData.data_preenchimento + 'T12:00:00').toLocaleDateString('pt-BR') : '__ / __ / ____'}</span></span>
           </div>
 
-          <div className="mt-4 font-bold text-sm text-center w-full pb-2">
+          <div className="mt-8 font-bold text-base text-center w-full pb-2">
             OBS: Criança ou adolescente portador de deficiência, preencher Ficha E
           </div>
 
