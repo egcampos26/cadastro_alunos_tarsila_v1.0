@@ -468,10 +468,16 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
       </div>
 
       {/* LAYOUT DE IMPRESSÃO - Réplica exata (Visível apenas ao imprimir) */}
-      <div className="hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-4 text-[10px] leading-tight font-sans">
+      <div className="hidden print:block print:w-[210mm] print:mx-auto bg-white text-black p-0 text-[10px] leading-tight font-sans">
+        <style type="text/css" media="print">
+          {`
+            @page { size: A4; margin: 10mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          `}
+        </style>
         
         {/* === PÁGINA 1 === */}
-        <div className="print:min-h-[280mm] box-border relative">
+        <div className="box-border relative break-after-page">
           <div className="flex justify-between items-start mb-2">
             <div className="w-16 h-16 border flex items-center justify-center text-[10px] text-center overflow-hidden font-bold">
               BRASÃO
@@ -667,13 +673,10 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
           </div>
         </div>
 
-        {/* Quebra de página */}
-        <div className="page-break-before-always w-full h-4"></div>
-
         {/* === PÁGINA 2 === */}
-        <div className="print:min-h-[297mm] pt-4">
+        <div className="pt-2">
           
-          <div className="flex mb-4">
+          <div className="flex mb-3">
             <div className="w-6 mr-1 flex items-center justify-center font-bold text-xs relative">
                <span className="-rotate-90 whitespace-nowrap absolute">Diagnóstico atual</span>
             </div>
@@ -725,7 +728,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </table>
           </div>
 
-          <div className="flex mb-4">
+          <div className="flex mb-3">
             <div className="w-6 mr-1 flex items-center justify-center font-bold text-xs relative">
                <span className="-rotate-90 whitespace-nowrap absolute">Situação vacinal</span>
             </div>
@@ -771,7 +774,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </div>
           </div>
 
-          <div className="flex mb-4">
+          <div className="flex mb-3">
             <div className="w-6 mr-1 flex items-center justify-center font-bold text-[10px] leading-tight relative">
                <span className="-rotate-90 whitespace-nowrap absolute leading-[10px]">Teste de<br/>Acuidade<br/>Visual</span>
             </div>
@@ -877,7 +880,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </div>
           </div>
 
-          <div className="flex mb-4">
+          <div className="flex mb-3">
             <div className="w-6 mr-1 flex items-center justify-center font-bold text-[10px] relative">
                <span className="-rotate-90 whitespace-nowrap absolute">Programas<br/>Sociais</span>
             </div>
@@ -894,12 +897,12 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </div>
           </div>
 
-          <div className="mt-6 font-bold flex justify-between text-xs">
+          <div className="mt-4 font-bold flex justify-between text-xs">
             <span>Responsável pelo preenchimento: <span className="underline">{formData.responsavel_preenchimento || '__________________________________________'}</span></span>
             <span>Data <span className="underline">{formData.data_preenchimento ? new Date(formData.data_preenchimento + 'T12:00:00').toLocaleDateString('pt-BR') : '__ / __ / ____'}</span></span>
           </div>
 
-          <div className="mt-6 font-bold text-sm text-center w-full pb-4">
+          <div className="mt-4 font-bold text-sm text-center w-full pb-2">
             OBS: Criança ou adolescente portador de deficiência, preencher Ficha E
           </div>
 

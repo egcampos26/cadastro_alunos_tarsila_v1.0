@@ -983,7 +983,7 @@ export default function App() {
       )}
 
       {/* Footer */}
-      <footer className="max-w-4xl mx-auto py-12 px-4 text-center text-gray-400 text-sm">
+      <footer className="max-w-4xl mx-auto py-12 px-4 text-center text-gray-400 text-sm print:hidden">
         <p>&copy; 2026 Portal de Cadastro Escolar. Todos os direitos reservados.</p>
       </footer>
     </div>
