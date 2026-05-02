@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Save, Printer, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { FichaSaudeData, initialFichaSaudeData } from '../types/saude';
 import { Student } from '../types';
@@ -10,7 +10,43 @@ interface FichaSaudeProps {
   onBack: () => void;
 }
 
+export interface PrintConfig {
+  page1Height: number;
+  page2Height: number;
+  questionsSpacing: number;
+  headerBoxWidth: number;
+  titleLeftShift: number;
+  logoWidth: number;
+  logoHeight: number;
+  greyBoxSubHeight: number;
+}
+
+const defaultPrintConfig: PrintConfig = {
+  page1Height: 277,
+  page2Height: 277,
+  questionsSpacing: 9,
+  headerBoxWidth: 220,
+  titleLeftShift: 32,
+  logoWidth: 60,
+  logoHeight: 70,
+  greyBoxSubHeight: 185,
+};
+
 export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
+  const [printConfig, setPrintConfig] = useState<PrintConfig>(() => {
+    const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
+    return saved ? JSON.parse(saved) : defaultPrintConfig;
+  });
+  const [showSettings, setShowSettings] = useState(false);
+
+  const updateConfig = (key: keyof PrintConfig, val: number) => {
+    setPrintConfig(prev => {
+      const next = { ...prev, [key]: val };
+      localStorage.setItem('@PortalTarsila:FichaSaudeB_PrintConfig', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const [formData, setFormData] = useState<FichaSaudeData>({
     ...initialFichaSaudeData,
     id_aluno: Number(student.id)
@@ -158,6 +194,9 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </button>
         <h2 className="text-xl font-bold text-white uppercase">Ficha de Saúde B</h2>
         <div className="flex gap-3">
+          <button onClick={() => setShowSettings(true)} className="flex items-center gap-2 bg-gray-200 text-[#0f254e] px-4 py-2 rounded-lg font-bold hover:bg-gray-300 transition-colors shadow-sm">
+            <Settings className="w-4 h-4" /> Layout
+          </button>
           <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-white text-[#3b5998] px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar
           </button>
@@ -475,19 +514,73 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           `}
         </style>
+
+        {showSettings && (
+          <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center print:hidden">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-lg">Ajustes Finos de Impressão</h3>
+                <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-red-500">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Altura da Página 1 <span>{printConfig.page1Height}mm</span></label>
+                  <input type="range" min="200" max="297" value={printConfig.page1Height} onChange={e => updateConfig('page1Height', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Altura da Página 2 <span>{printConfig.page2Height}mm</span></label>
+                  <input type="range" min="200" max="297" value={printConfig.page2Height} onChange={e => updateConfig('page2Height', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Largura da Caixa Unidade Educacional <span>{printConfig.headerBoxWidth}px</span></label>
+                  <input type="range" min="150" max="300" value={printConfig.headerBoxWidth} onChange={e => updateConfig('headerBoxWidth', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Espaçamento Vertical das Perguntas <span>{printConfig.questionsSpacing}px</span></label>
+                  <input type="range" min="0" max="20" value={printConfig.questionsSpacing} onChange={e => updateConfig('questionsSpacing', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Posição Horizontal do Título <span>{printConfig.titleLeftShift}px</span></label>
+                  <input type="range" min="-50" max="100" value={printConfig.titleLeftShift} onChange={e => updateConfig('titleLeftShift', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Altura da Caixa de Perguntas <span>offset: {printConfig.greyBoxSubHeight}px</span></label>
+                  <input type="range" min="100" max="300" value={printConfig.greyBoxSubHeight} onChange={e => updateConfig('greyBoxSubHeight', Number(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold flex justify-between">Tamanho do Brasão <span>L: {printConfig.logoWidth} / A: {printConfig.logoHeight}</span></label>
+                  <div className="flex gap-2">
+                     <input type="range" min="30" max="100" value={printConfig.logoWidth} onChange={e => updateConfig('logoWidth', Number(e.target.value))} className="w-1/2" />
+                     <input type="range" min="30" max="100" value={printConfig.logoHeight} onChange={e => updateConfig('logoHeight', Number(e.target.value))} className="w-1/2" />
+                  </div>
+                </div>
+                
+                <button onClick={() => {
+                   localStorage.removeItem('@PortalTarsila:FichaSaudeB_PrintConfig');
+                   setPrintConfig(defaultPrintConfig);
+                }} className="w-full mt-4 text-sm text-red-600 border border-red-200 rounded p-2 hover:bg-red-50">
+                  Restaurar Padrões Originais
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* === PÁGINA 1 === */}
-        <div className="box-border relative break-after-page h-[277mm]">
+        <div className="box-border relative break-after-page" style={{ height: `${printConfig.page1Height}mm` }}>
           <div className="flex justify-between items-start mb-2">
-            <div className="w-[60px] h-[70px] border border-black flex items-center justify-center text-[10px] text-center font-bold mt-2">
+            <div className="border border-black flex items-center justify-center text-[10px] text-center font-bold mt-2" style={{ width: `${printConfig.logoWidth}px`, height: `${printConfig.logoHeight}px` }}>
               BRASÃO
             </div>
-            <div className="flex-1 text-center font-bold text-[13px] tracking-wide pt-1 relative left-8">
+            <div className="flex-1 text-center font-bold text-[13px] tracking-wide pt-1 relative" style={{ left: `${printConfig.titleLeftShift}px` }}>
               PREFEITURA DO MUNICÍPIO DE SÃO PAULO
               <div className="mt-1 text-[15px] tracking-widest">FICHA DE <span className="underline">SAÚDE</span> <span className="text-3xl font-black">B</span></div>
               <div className="text-xs font-bold mt-0.5">EMEI / EMEF<br/><span className="font-normal text-[11px]">(4 a 14 anos)</span></div>
             </div>
-            <div className="border-2 border-black p-1.5 w-[220px] text-[11px] h-14 font-bold mt-3">
+            <div className="border-2 border-black p-1.5 text-[11px] h-14 font-bold mt-3" style={{ width: `${printConfig.headerBoxWidth}px` }}>
               Unidade Educacional<br/>
               <span className="font-normal">EMEF Tarsila do Amaral</span>
             </div>
@@ -545,7 +638,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </tbody>
           </table>
 
-          <div className="flex relative mt-2 mb-2" style={{ height: 'calc(277mm - 185px)' }}>
+          <div className="flex relative mt-2 mb-2" style={{ height: `calc(${printConfig.page1Height}mm - ${printConfig.greyBoxSubHeight}px)` }}>
             <div className="absolute -right-[6px] -bottom-[6px] bg-[#999999] w-full h-full z-0"></div>
             
             <div className="flex w-full border border-black bg-white z-10 relative h-full">
@@ -555,7 +648,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 </div>
               </div>
               
-              <div className="flex-1 p-2 px-3 space-y-[9px] relative z-10 text-[11px] leading-tight overflow-hidden">
+              <div className="flex-1 p-2 px-3 relative z-10 text-[11px] leading-tight overflow-hidden flex flex-col" style={{ gap: `${printConfig.questionsSpacing}px` }}>
                 <div>
                   1 – Teve algum problema de saúde ao nascimento? &nbsp;&nbsp;&nbsp; 
                   <PrintCheck checked={!formData.q1_problema_nascimento} label="Não" /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -674,7 +767,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         </div>
 
         {/* === PÁGINA 2 === */}
-        <div className="pt-0 h-[277mm] box-border">
+        <div className="pt-0 box-border" style={{ height: `${printConfig.page2Height}mm` }}>
           
           <div className="flex mb-3">
             <div className="w-6 mr-1 flex items-center justify-center font-bold text-xs relative">
