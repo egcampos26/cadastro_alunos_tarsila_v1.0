@@ -1,5 +1,11 @@
 import React, { useState, useEffect, FormEvent, Component, ErrorInfo, ReactNode } from 'react';
 import logoEmef from './assets/logo-emef.png';
+import { supabase } from './lib/supabase';
+import { Student } from './types';
+import { motion, AnimatePresence } from 'motion/react';
+import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar } from 'lucide-react';
+import { cn } from './lib/utils';
+import FichaSaude from './components/FichaSaude';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -55,22 +61,84 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
-// ... rest of the imports and functions ...
-import { supabase } from './lib/supabase';
-import { Student } from './types';
-import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Plus } from 'lucide-react';
-import { cn } from './lib/utils';
-import FichaSaude from './components/FichaSaude';
-
-// Helper to handle errors
-function handleError(error: unknown) {
-  console.error('Operation Error: ', error);
-  throw error;
+// Helper to normalize strings for comparison (remove accents, trim, uppercase)
+function normalizeText(text: string): string {
+  return (text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, ' ');
 }
+
+// Helper to parse JSON safely
+function parseJson(val: any): Record<string, any> {
+  if (!val) return {};
+  if (typeof val === 'object') return val;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return {};
+  }
+}
+
+// Normalizer for Race select option
+function normalizeRace(race?: string): string {
+  if (!race) return '';
+  const r = race.trim().toUpperCase();
+  if (r === 'BRANCA') return 'Branca';
+  if (r === 'PRETA') return 'Preta';
+  if (r === 'PARDA') return 'Parda';
+  if (r === 'AMARELA') return 'Amarela';
+  if (r === 'INDIGENA' || r === 'INDÍGENA') return 'Indígena';
+  if (r === 'NAO DECLARADO' || r === 'NÃO DECLARADO') return 'Não Declarado';
+  return race;
+}
+
+// Normalizer for Gender select option
+function normalizeGender(gender?: string): string {
+  if (!gender) return '';
+  const g = gender.trim().toUpperCase();
+  if (g.startsWith('M')) return 'Masculino';
+  if (g.startsWith('F')) return 'Feminino';
+  return gender;
+}
+
+const initialFormData = {
+  birthDate: '',
+  gender: '',
+  race: '',
+  cpf: '',
+  rg: '',
+  rgDigit: '',
+  guardianName: '',
+  guardianCpf: '',
+  guardianPhone: '',
+  guardianWhatsapp: '',
+  guardianEmail: '',
+  motherName: '',
+  motherCpf: '',
+  motherPhone: '',
+  motherWhatsapp: '',
+  motherEmail: '',
+  fatherName: '',
+  fatherCpf: '',
+  fatherPhone: '',
+  fatherWhatsapp: '',
+  fatherEmail: '',
+  cep: '',
+  street: '',
+  number: '',
+  complement: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  healthInfo: ''
+};
 
 export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchBirthDate, setSearchBirthDate] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [foundStudent, setFoundStudent] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,37 +149,13 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'main' | 'saude'>('main');
 
   // Form state
-  const [formData, setFormData] = useState({
-    birthDate: '',
-    gender: '',
-    race: '',
-    cpf: '',
-    rg: '',
-    rgDigit: '',
-    guardianName: '',
-    guardianCpf: '',
-    guardianPhone: '',
-    guardianWhatsapp: '',
-    guardianEmail: '',
-    motherName: '',
-    motherCpf: '',
-    motherPhone: '',
-    motherWhatsapp: '',
-    motherEmail: '',
-    fatherName: '',
-    fatherCpf: '',
-    fatherPhone: '',
-    fatherWhatsapp: '',
-    fatherEmail: '',
-    cep: '',
-    street: '',
-    number: '',
-    complement: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    healthInfo: ''
-  });
+  const [formData, setFormData] = useState(initialFormData);
+
+  const resetAllFormState = () => {
+    setFormData(initialFormData);
+    setIsMotherMain(false);
+    setIsFatherMain(false);
+  };
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const cep = e.target.value.replace(/\D/g, '');
@@ -130,8 +174,8 @@ export default function App() {
             state: data.uf || ''
           }));
         }
-      } catch (error) {
-        console.error("Erro ao buscar CEP", error);
+      } catch (err) {
+        console.error("Erro ao buscar CEP", err);
       }
     }
   };
@@ -142,8 +186,8 @@ export default function App() {
       try {
         const { error } = await supabase.from('ALUNOS').select('count', { count: 'exact', head: true });
         if (error) throw error;
-      } catch (error) {
-        console.error("Please check your Supabase configuration.", error);
+      } catch (err) {
+        console.error("Please check your Supabase configuration.", err);
       }
     }
     testConnection();
@@ -151,7 +195,17 @@ export default function App() {
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+
+    const cleanInputName = normalizeText(searchTerm);
+    if (!cleanInputName) {
+      setError('Por favor, informe o nome completo do aluno.');
+      return;
+    }
+
+    if (!searchBirthDate) {
+      setError('Por favor, informe a data de nascimento do aluno.');
+      return;
+    }
 
     setIsSearching(true);
     setError(null);
@@ -159,92 +213,197 @@ export default function App() {
     setIsSuccess(false);
 
     try {
-      const { data: students, error: searchError } = await supabase
+      // 1. Search in ALUNOS by data_nasc_aluno and join actual related tables
+      const { data: studentsByDate, error: searchError } = await supabase
         .from('ALUNOS')
         .select(`
           *,
-          DADOS_ALUNOS (*)
+          ALUNOS_DADOS_GERAIS (*),
+          ALUNOS_DOCUMENTOS (*),
+          ALUNOS_ENDERECOS (*),
+          ALUNOS_MATRICULAS (*),
+          ALUNOS_CONTATOS (*),
+          ALUNOS_DADOS_SAUDE (*)
         `)
-        .ilike('nome_aluno', searchTerm.trim())
-        .limit(1);
+        .eq('data_nasc_aluno', searchBirthDate);
 
       if (searchError) throw searchError;
 
-      if (!students || students.length === 0) {
-        setError('Aluno não encontrado, verifique se o nome completo esta correto');
-      } else {
-        const student = students[0];
-        const extraData = student.DADOS_ALUNOS?.[0] || {};
-        
-        const mappedStudent: Student = {
-          id: student.id_aluno.toString(),
-          name: student.nome_aluno,
-          class: student.serie_aluno || student.turma_aluno || '',
-          period: student.periodo_aluno || '',
-          birthDate: student.data_nasc_aluno || '',
-          gender: student.genero_aluno || '',
-          race: student.raca_aluno || '',
-          cpf: student.cpf_aluno || '',
-          rg: student.rg_aluno || '',
-          rgDigit: student.rg_digito_aluno || '',
-          guardianName: extraData.responsavel_1_aluno || '',
-          guardianCpf: extraData.cpf_resp_1_aluno || '',
-          guardianPhone: extraData.tel_responsavel_1_aluno || '',
-          guardianWhatsapp: extraData.whatsapp_responsavel_1_aluno || '',
-          guardianEmail: extraData.email_responsavel_1_aluno || '',
-          motherName: extraData.responsavel_1_aluno || '', // simplified
-          fatherName: extraData.responsavel_2_aluno || '',
-          cep: extraData.cep_dados || '',
-          street: extraData.logradouro_dados || '',
-          number: extraData.numero_dados || '',
-          complement: extraData.complemento_dados || '',
-          neighborhood: extraData.bairro_dados || '',
-          city: extraData.cidade_dados || '',
-          state: extraData.estado_dados || '',
-          healthInfo: student.saude_aluno || ''
-        };
+      // Find student whose normalized name matches
+      let matched = studentsByDate?.find(
+        (s: any) => normalizeText(s.nome_aluno) === cleanInputName
+      );
 
-        setFoundStudent(mappedStudent);
-        
-        // Sync guardian main logic
-        setIsMotherMain(!!(mappedStudent.guardianName && mappedStudent.guardianName === mappedStudent.motherName));
-        setIsFatherMain(!!(mappedStudent.guardianName && mappedStudent.guardianName === mappedStudent.fatherName));
-        
-        setFormData({
-          birthDate: mappedStudent.birthDate || '',
-          gender: mappedStudent.gender || '',
-          race: mappedStudent.race || '',
-          cpf: mappedStudent.cpf || '',
-          rg: mappedStudent.rg || '',
-          rgDigit: mappedStudent.rgDigit || '',
-          guardianName: mappedStudent.guardianName || '',
-          guardianCpf: mappedStudent.guardianCpf || '',
-          guardianPhone: mappedStudent.guardianPhone || '',
-          guardianWhatsapp: mappedStudent.guardianWhatsapp || '',
-          guardianEmail: mappedStudent.guardianEmail || '',
-          motherName: mappedStudent.motherName || '',
-          motherCpf: '', // cpf not stored separately for mother/father in this simplified mapping
-          motherPhone: '',
-          motherWhatsapp: '',
-          motherEmail: '',
-          fatherName: mappedStudent.fatherName || '',
-          fatherCpf: '',
-          fatherPhone: '',
-          fatherWhatsapp: '',
-          fatherEmail: '',
-          cep: mappedStudent.cep || '',
-          street: mappedStudent.street || '',
-          number: mappedStudent.number || '',
-          complement: mappedStudent.complement || '',
-          neighborhood: mappedStudent.neighborhood || '',
-          city: mappedStudent.city || '',
-          state: mappedStudent.state || '',
-          healthInfo: mappedStudent.healthInfo || ''
+      // Partial match fallback if student full name differs slightly (e.g. compound surname)
+      if (!matched && studentsByDate && studentsByDate.length > 0) {
+        matched = studentsByDate.find((s: any) => {
+          const sName = normalizeText(s.nome_aluno);
+          return sName.includes(cleanInputName) || cleanInputName.includes(sName);
         });
       }
+
+      // If still not matched, check if the student exists by name to give accurate and helpful feedback
+      if (!matched) {
+        const firstName = cleanInputName.split(' ')[0];
+        const { data: nameCandidates } = await supabase
+          .from('ALUNOS')
+          .select(`
+            *,
+            ALUNOS_DADOS_GERAIS (*),
+            ALUNOS_DOCUMENTOS (*),
+            ALUNOS_ENDERECOS (*),
+            ALUNOS_MATRICULAS (*),
+            ALUNOS_CONTATOS (*),
+            ALUNOS_DADOS_SAUDE (*)
+          `)
+          .ilike('nome_aluno', `%${firstName}%`);
+
+        const nameMatch = nameCandidates?.find((s: any) => {
+          const sName = normalizeText(s.nome_aluno);
+          return sName === cleanInputName || sName.includes(cleanInputName) || cleanInputName.includes(sName);
+        });
+
+        if (nameMatch) {
+          if (!nameMatch.data_nasc_aluno) {
+            // Student is in the database but without a birth date yet.
+            // Allow access and let them register the date of birth!
+            matched = nameMatch;
+          } else {
+            setError('A data de nascimento informada não confere com o cadastro do aluno. Verifique a data informada.');
+            return;
+          }
+        } else {
+          setError('Aluno não encontrado. Verifique se o nome completo foi digitado corretamente.');
+          return;
+        }
+      }
+
+      if (!matched) {
+        setError('Aluno não encontrado com os dados informados. Verifique o nome completo e a data de nascimento.');
+        return;
+      }
+
+      // Helper to extract first item of array or single object
+      const getSingle = (val: any): any => (Array.isArray(val) ? val[0] : val) || {};
+
+      const dadosGerais = getSingle(matched.ALUNOS_DADOS_GERAIS);
+      const documentos = getSingle(matched.ALUNOS_DOCUMENTOS);
+      const enderecos = getSingle(matched.ALUNOS_ENDERECOS);
+      const contatos = getSingle(matched.ALUNOS_CONTATOS);
+      const dadosCompletos = parseJson(contatos.dados_completos);
+
+      const matriculas = Array.isArray(matched.ALUNOS_MATRICULAS)
+        ? matched.ALUNOS_MATRICULAS
+        : (matched.ALUNOS_MATRICULAS ? [matched.ALUNOS_MATRICULAS] : []);
+      const matricula = matriculas.find((m: any) => m.ano_letivo_aluno === 2026 || m.ano_letivo === 2026) || matriculas[0] || {};
+
+      const motherPhone = dadosCompletos.tel_filiacao1_pessoal_numero
+        ? `${dadosCompletos.tel_filiacao1_pessoal_ddd || ''} ${dadosCompletos.tel_filiacao1_pessoal_numero}`.trim()
+        : (dadosCompletos.tel_filiacao1_residencial_numero ? `${dadosCompletos.tel_filiacao1_residencial_ddd || ''} ${dadosCompletos.tel_filiacao1_residencial_numero}`.trim() : '');
+
+      const fatherPhone = dadosCompletos.tel_filiacao2_pessoal_numero
+        ? `${dadosCompletos.tel_filiacao2_pessoal_ddd || ''} ${dadosCompletos.tel_filiacao2_pessoal_numero}`.trim()
+        : (dadosCompletos.tel_filiacao2_residencial_numero ? `${dadosCompletos.tel_filiacao2_residencial_ddd || ''} ${dadosCompletos.tel_filiacao2_residencial_numero}`.trim() : '');
+
+      const respPhone = dadosCompletos.tel_responsavel_pessoal_numero
+        ? `${dadosCompletos.tel_responsavel_pessoal_ddd || ''} ${dadosCompletos.tel_responsavel_pessoal_numero}`.trim()
+        : (motherPhone || fatherPhone || '');
+
+      const contactEmail = contatos.email_responsavel || contatos.email_aluno || '';
+
+      const motherName = dadosGerais.filiacao1_aluno || '';
+      const motherCpf = dadosGerais.cpf_filiacao_1_aluno || '';
+      const fatherName = dadosGerais.filiacao2_aluno || '';
+      const fatherCpf = dadosGerais.cpf_filiacao_2_aluno || '';
+
+      const studentRg = documentos.rg_aluno === 'Não' ? '' : (documentos.rg_aluno || '');
+      const studentRgDigit = documentos.rg_digito_aluno === 'Sim' ? '' : (documentos.rg_digito_aluno || '');
+
+      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || searchBirthDate;
+
+      const guardianName = motherName || fatherName || '';
+      const guardianCpf = motherName ? motherCpf : fatherCpf;
+      const guardianPhone = motherName ? (motherPhone || respPhone) : (fatherPhone || respPhone);
+
+      const turmaFormatada = [matricula.serie_aluno, matricula.turma_aluno].filter(Boolean).join(' ');
+
+      const mappedStudent: Student = {
+        id: matched.id_aluno.toString(),
+        name: matched.nome_aluno,
+        class: turmaFormatada,
+        period: matricula.periodo_aluno || '',
+        birthDate: birthDate,
+        gender: normalizeGender(dadosGerais.genero_aluno),
+        race: normalizeRace(dadosGerais.raca_aluno),
+        cpf: documentos.cpf_aluno || '',
+        rg: studentRg,
+        rgDigit: studentRgDigit,
+        guardianName: guardianName,
+        guardianCpf: guardianCpf,
+        guardianPhone: guardianPhone,
+        guardianWhatsapp: guardianPhone,
+        guardianEmail: contactEmail,
+        motherName: motherName,
+        motherCpf: motherCpf,
+        motherPhone: motherPhone,
+        motherWhatsapp: motherPhone,
+        motherEmail: contactEmail,
+        fatherName: fatherName,
+        fatherCpf: fatherCpf,
+        fatherPhone: fatherPhone,
+        fatherWhatsapp: fatherPhone,
+        fatherEmail: contactEmail,
+        cep: enderecos.cep_aluno || '',
+        street: enderecos.logradouro_aluno || '',
+        number: enderecos.numero_aluno || '',
+        complement: enderecos.complemento_aluno || '',
+        neighborhood: enderecos.bairro_aluno || '',
+        city: enderecos.cidade_aluno || '',
+        state: enderecos.estado_aluno || '',
+        healthInfo: ''
+      };
+
+      setFoundStudent(mappedStudent);
+
+      // Default main guardian: mother if exists, else father
+      const motherIsMain = Boolean(motherName);
+      setIsMotherMain(motherIsMain);
+      setIsFatherMain(!motherIsMain && Boolean(fatherName));
+
+      setFormData({
+        birthDate: birthDate,
+        gender: normalizeGender(dadosGerais.genero_aluno),
+        race: normalizeRace(dadosGerais.raca_aluno),
+        cpf: documentos.cpf_aluno || '',
+        rg: studentRg,
+        rgDigit: studentRgDigit,
+        guardianName: guardianName,
+        guardianCpf: guardianCpf,
+        guardianPhone: guardianPhone,
+        guardianWhatsapp: guardianPhone,
+        guardianEmail: contactEmail,
+        motherName: motherName,
+        motherCpf: motherCpf,
+        motherPhone: motherPhone,
+        motherWhatsapp: motherPhone,
+        motherEmail: contactEmail,
+        fatherName: fatherName,
+        fatherCpf: fatherCpf,
+        fatherPhone: fatherPhone,
+        fatherWhatsapp: fatherPhone,
+        fatherEmail: contactEmail,
+        cep: enderecos.cep_aluno || '',
+        street: enderecos.logradouro_aluno || '',
+        number: enderecos.numero_aluno || '',
+        complement: enderecos.complemento_aluno || '',
+        neighborhood: enderecos.bairro_aluno || '',
+        city: enderecos.cidade_aluno || '',
+        state: enderecos.estado_aluno || '',
+        healthInfo: ''
+      });
     } catch (err) {
-      handleError(err);
-      setError('Erro ao buscar aluno. Tente novamente.');
+      console.error('Search error:', err);
+      setError('Erro ao buscar aluno. Por favor, tente novamente.');
     } finally {
       setIsSearching(false);
     }
@@ -261,80 +420,152 @@ export default function App() {
     setError(null);
 
     try {
-      // Update ALUNOS table
-      const { error: alunoError } = await supabase
-        .from('ALUNOS')
-        .update({
-          data_nasc_aluno: formData.birthDate,
-          genero_aluno: formData.gender,
-          raca_aluno: formData.race,
+      const studentId = Number(foundStudent.id);
+
+      // 1. Update ALUNOS birth date if provided
+      if (formData.birthDate) {
+        await supabase
+          .from('ALUNOS')
+          .update({ data_nasc_aluno: formData.birthDate })
+          .eq('id_aluno', studentId);
+      }
+
+      // 2. Upsert ALUNOS_DADOS_GERAIS
+      const finalMotherName = isMotherMain ? formData.guardianName : (formData.motherName || '');
+      const finalMotherCpf = isMotherMain ? formData.guardianCpf : (formData.motherCpf || '');
+      const finalFatherName = isFatherMain ? formData.guardianName : (formData.fatherName || '');
+      const finalFatherCpf = isFatherMain ? formData.guardianCpf : (formData.fatherCpf || '');
+
+      const { error: errorGerais } = await supabase
+        .from('ALUNOS_DADOS_GERAIS')
+        .upsert({
+          id_aluno: studentId,
+          nome_aluno: foundStudent.name,
+          data_nasc_aluno: formData.birthDate || null,
+          genero_aluno: formData.gender || null,
+          raca_aluno: formData.race || null,
+          filiacao1_aluno: finalMotherName,
+          cpf_filiacao_1_aluno: finalMotherCpf,
+          filiacao2_aluno: finalFatherName,
+          cpf_filiacao_2_aluno: finalFatherCpf,
+        }, { onConflict: 'id_aluno' });
+
+      if (errorGerais) throw errorGerais;
+
+      // 3. Upsert ALUNOS_DOCUMENTOS
+      const { error: errorDocs } = await supabase
+        .from('ALUNOS_DOCUMENTOS')
+        .upsert({
+          id_aluno: studentId,
           cpf_aluno: formData.cpf,
           rg_aluno: formData.rg,
           rg_digito_aluno: formData.rgDigit,
-          saude_aluno: formData.healthInfo
-        })
-        .eq('id_aluno', foundStudent.id);
+        }, { onConflict: 'id_aluno' });
 
-      if (alunoError) throw alunoError;
+      if (errorDocs) throw errorDocs;
 
-      // Update DADOS_ALUNOS table
-      const { error: dadosError } = await supabase
-        .from('DADOS_ALUNOS')
-        .upsert({
-          id_aluno: foundStudent.id,
-          responsavel_1_aluno: formData.guardianName,
-          cpf_resp_1_aluno: formData.guardianCpf,
-          tel_responsavel_1_aluno: formData.guardianPhone,
-          whatsapp_responsavel_1_aluno: formData.guardianWhatsapp,
-          email_responsavel_1_aluno: formData.guardianEmail,
-          responsavel_2_aluno: formData.fatherName,
-          cep_dados: formData.cep,
-          logradouro_dados: formData.street,
-          numero_dados: formData.number,
-          complemento_dados: formData.complement,
-          bairro_dados: formData.neighborhood,
-          cidade_dados: formData.city,
-          estado_dados: formData.state
-        });
+      // 4. Update / Insert ALUNOS_ENDERECOS
+      const { data: existingAddress } = await supabase
+        .from('ALUNOS_ENDERECOS')
+        .select('id')
+        .eq('id_aluno', studentId)
+        .limit(1);
 
-      if (dadosError) throw dadosError;
+      const addressPayload = {
+        id_aluno: studentId,
+        cep_aluno: formData.cep,
+        logradouro_aluno: formData.street,
+        numero_aluno: formData.number,
+        complemento_aluno: formData.complement,
+        bairro_aluno: formData.neighborhood,
+        cidade_aluno: formData.city,
+        estado_aluno: formData.state,
+      };
+
+      if (existingAddress && existingAddress.length > 0) {
+        const { error: addrErr } = await supabase
+          .from('ALUNOS_ENDERECOS')
+          .update(addressPayload)
+          .eq('id_aluno', studentId);
+        if (addrErr) throw addrErr;
+      } else {
+        const { error: addrErr } = await supabase
+          .from('ALUNOS_ENDERECOS')
+          .insert(addressPayload);
+        if (addrErr) throw addrErr;
+      }
+
+      // 5. Update / Insert ALUNOS_CONTATOS
+      const { data: existingContatos } = await supabase
+        .from('ALUNOS_CONTATOS')
+        .select('dados_completos')
+        .eq('id_aluno', studentId)
+        .maybeSingle();
+
+      const dadosCompletos = parseJson(existingContatos?.dados_completos);
+
+      if (isMotherMain || formData.motherPhone) {
+        dadosCompletos.tel_filiacao1_pessoal_numero = isMotherMain ? formData.guardianPhone : formData.motherPhone;
+        dadosCompletos.tel_filiacao1_pessoal_tipo = 'Celular';
+      }
+      if (isFatherMain || formData.fatherPhone) {
+        dadosCompletos.tel_filiacao2_pessoal_numero = isFatherMain ? formData.guardianPhone : formData.fatherPhone;
+        dadosCompletos.tel_filiacao2_pessoal_tipo = 'Celular';
+      }
+      if (formData.guardianPhone) {
+        dadosCompletos.tel_responsavel_pessoal_numero = formData.guardianPhone;
+        dadosCompletos.tel_responsavel_pessoal_tipo = 'Celular';
+      }
+
+      const emailResponsavel = formData.guardianEmail || formData.motherEmail || formData.fatherEmail || null;
+
+      if (existingContatos) {
+        const { error: contatosErr } = await supabase
+          .from('ALUNOS_CONTATOS')
+          .update({
+            email_responsavel: emailResponsavel,
+            dados_completos: JSON.stringify(dadosCompletos)
+          })
+          .eq('id_aluno', studentId);
+        if (contatosErr) throw contatosErr;
+      } else {
+        const { error: contatosErr } = await supabase
+          .from('ALUNOS_CONTATOS')
+          .insert({
+            id_aluno: studentId,
+            email_responsavel: emailResponsavel,
+            dados_completos: JSON.stringify(dadosCompletos)
+          });
+        if (contatosErr) throw contatosErr;
+      }
+
+      // 6. Record responsible name in ALUNOS_RESPONSAVEL
+      if (formData.guardianName) {
+        const { data: existingResp } = await supabase
+          .from('ALUNOS_RESPONSAVEL')
+          .select('id')
+          .eq('id_aluno', studentId)
+          .limit(1);
+
+        if (existingResp && existingResp.length > 0) {
+          await supabase
+            .from('ALUNOS_RESPONSAVEL')
+            .update({ nome_aluno: formData.guardianName })
+            .eq('id', existingResp[0].id);
+        } else {
+          await supabase
+            .from('ALUNOS_RESPONSAVEL')
+            .insert({ id_aluno: studentId, nome_aluno: formData.guardianName });
+        }
+      }
 
       setIsSuccess(true);
       setFoundStudent(null);
       setSearchTerm('');
-      setFormData({
-        birthDate: '',
-        gender: '',
-        race: '',
-        cpf: '',
-        rg: '',
-        rgDigit: '',
-        guardianName: '',
-        guardianCpf: '',
-        guardianPhone: '',
-        guardianWhatsapp: '',
-        guardianEmail: '',
-        motherName: '',
-        motherCpf: '',
-        motherPhone: '',
-        motherWhatsapp: '',
-        motherEmail: '',
-        fatherName: '',
-        fatherCpf: '',
-        fatherPhone: '',
-        fatherWhatsapp: '',
-        fatherEmail: '',
-        cep: '',
-        street: '',
-        number: '',
-        complement: '',
-        neighborhood: '',
-        city: '',
-        state: '',
-        healthInfo: ''
-      });
+      setSearchBirthDate('');
+      resetAllFormState();
     } catch (err) {
-      handleError(err);
+      console.error('Save error:', err);
       setError('Erro ao salvar informações. Tente novamente.');
     } finally {
       setIsSubmitting(false);
@@ -346,40 +577,10 @@ export default function App() {
     if (confirmCancel) {
       setFoundStudent(null);
       setSearchTerm('');
-      setFormData({
-        birthDate: '',
-        gender: '',
-        race: '',
-        cpf: '',
-        rg: '',
-        rgDigit: '',
-        guardianName: '',
-        guardianCpf: '',
-        guardianPhone: '',
-        guardianWhatsapp: '',
-        guardianEmail: '',
-        motherName: '',
-        motherCpf: '',
-        motherPhone: '',
-        motherWhatsapp: '',
-        motherEmail: '',
-        fatherName: '',
-        fatherCpf: '',
-        fatherPhone: '',
-        fatherWhatsapp: '',
-        fatherEmail: '',
-        cep: '',
-        street: '',
-        number: '',
-        complement: '',
-        neighborhood: '',
-        city: '',
-        state: '',
-        healthInfo: ''
-      });
+      setSearchBirthDate('');
+      resetAllFormState();
     }
   };
-
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100 print:bg-white">
@@ -418,34 +619,62 @@ export default function App() {
 
               <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
                 <div className="text-center mb-8">
-                  <h2 className="text-4xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
-                  <p className="text-gray-500 mt-3 text-lg">Digite o nome completo do aluno para acessar o formulário</p>
+                  <h2 className="text-3xl md:text-4xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
+                  <p className="text-gray-600 mt-3 text-base md:text-lg">
+                    Informe o <strong>nome completo</strong> e a <strong>data de nascimento</strong> do aluno para acessar o cadastro
+                  </p>
                 </div>
 
-                <form onSubmit={handleSearch} className="space-y-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Nome completo do aluno"
-                      className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-lg"
-                      required
-                    />
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <form onSubmit={handleSearch} className="space-y-5">
+                  <div className="space-y-1.5 text-left">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Nome completo do aluno
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Ex: Anthony de Jesus Feitoza"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-lg"
+                        required
+                      />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Data de nascimento do aluno
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={searchBirthDate}
+                        onChange={(e) => setSearchBirthDate(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        min="1990-01-01"
+                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-lg text-gray-800"
+                        required
+                      />
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    </div>
                   </div>
                   
                   <button
                     type="submit"
                     disabled={isSearching}
-                    className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                    className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
                   >
                     {isSearching ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Verificando cadastro...
+                      </>
                     ) : (
                       <>
                         <Search className="w-5 h-5" />
-                        Buscar Aluno
+                        Acessar Cadastro do Aluno
                       </>
                     )}
                   </button>
@@ -455,7 +684,7 @@ export default function App() {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600"
+                    className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-left"
                   >
                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
                     <p className="text-sm font-medium">{error}</p>
@@ -484,7 +713,7 @@ export default function App() {
                   <span className="text-white/80 text-xs font-bold uppercase tracking-wider">
                     Nome Completo
                   </span>
-                  <h2 className="text-3xl font-black text-white mt-1 uppercase text-center">{foundStudent.name}</h2>
+                  <h2 className="text-2xl md:text-3xl font-black text-white mt-1 uppercase text-center">{foundStudent.name}</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
@@ -728,7 +957,6 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              required
                               value={formData.guardianEmail}
                               onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
                               className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
@@ -749,7 +977,17 @@ export default function App() {
                             checked={isMotherMain}
                             onChange={(e) => {
                               setIsMotherMain(e.target.checked);
-                              if (e.target.checked) setIsFatherMain(false);
+                              if (e.target.checked) {
+                                setIsFatherMain(false);
+                                setFormData(prev => ({
+                                  ...prev,
+                                  guardianName: prev.motherName || prev.guardianName,
+                                  guardianCpf: prev.motherCpf || prev.guardianCpf,
+                                  guardianPhone: prev.motherPhone || prev.guardianPhone,
+                                  guardianWhatsapp: prev.motherWhatsapp || prev.guardianWhatsapp,
+                                  guardianEmail: prev.motherEmail || prev.guardianEmail
+                                }));
+                              }
                             }}
                             className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
                           />
@@ -832,7 +1070,17 @@ export default function App() {
                             checked={isFatherMain}
                             onChange={(e) => {
                               setIsFatherMain(e.target.checked);
-                              if (e.target.checked) setIsMotherMain(false);
+                              if (e.target.checked) {
+                                setIsMotherMain(false);
+                                setFormData(prev => ({
+                                  ...prev,
+                                  guardianName: prev.fatherName || prev.guardianName,
+                                  guardianCpf: prev.fatherCpf || prev.guardianCpf,
+                                  guardianPhone: prev.fatherPhone || prev.guardianPhone,
+                                  guardianWhatsapp: prev.fatherWhatsapp || prev.guardianWhatsapp,
+                                  guardianEmail: prev.fatherEmail || prev.guardianEmail
+                                }));
+                              }
                             }}
                             className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
                           />
