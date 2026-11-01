@@ -193,6 +193,15 @@ export default function App() {
     testConnection();
   }, []);
 
+  // Guarantee scroll to top whenever changing screens or loading a student
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [foundStudent?.id, currentView, isSuccess]);
+
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -223,7 +232,8 @@ export default function App() {
           ALUNOS_ENDERECOS (*),
           ALUNOS_MATRICULAS (*),
           ALUNOS_CONTATOS (*),
-          ALUNOS_DADOS_SAUDE (*)
+          ALUNOS_DADOS_SAUDE (*),
+          ALUNOS_RESPONSAVEL (*)
         `)
         .eq('data_nasc_aluno', searchBirthDate);
 
@@ -254,7 +264,8 @@ export default function App() {
             ALUNOS_ENDERECOS (*),
             ALUNOS_MATRICULAS (*),
             ALUNOS_CONTATOS (*),
-            ALUNOS_DADOS_SAUDE (*)
+            ALUNOS_DADOS_SAUDE (*),
+            ALUNOS_RESPONSAVEL (*)
           `)
           .ilike('nome_aluno', `%${firstName}%`);
 
@@ -321,9 +332,41 @@ export default function App() {
 
       const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || searchBirthDate;
 
-      const guardianName = motherName || fatherName || '';
-      const guardianCpf = motherName ? motherCpf : fatherCpf;
-      const guardianPhone = motherName ? (motherPhone || respPhone) : (fatherPhone || respPhone);
+      // Check ALUNOS_RESPONSAVEL to determine if mother, father, or someone else was the registered guardian
+      const responsaveisList = Array.isArray(matched.ALUNOS_RESPONSAVEL)
+        ? matched.ALUNOS_RESPONSAVEL
+        : (matched.ALUNOS_RESPONSAVEL ? [matched.ALUNOS_RESPONSAVEL] : []);
+      const savedResp = responsaveisList.find((r: any) => r.nome_aluno && r.nome_aluno.trim());
+      const savedRespName = savedResp ? savedResp.nome_aluno.trim() : '';
+
+      let initialMotherMain = false;
+      let initialFatherMain = false;
+      let initialGuardianName = '';
+
+      if (savedRespName) {
+        if (motherName && normalizeText(savedRespName) === normalizeText(motherName)) {
+          initialMotherMain = true;
+        } else if (fatherName && normalizeText(savedRespName) === normalizeText(fatherName)) {
+          initialFatherMain = true;
+        } else {
+          // Another person (e.g. grandmother, aunt, etc.)
+          initialGuardianName = savedRespName;
+        }
+      } else {
+        // Default to mother if exists, else father
+        if (motherName) {
+          initialMotherMain = true;
+        } else if (fatherName) {
+          initialFatherMain = true;
+        }
+      }
+
+      setIsMotherMain(initialMotherMain);
+      setIsFatherMain(initialFatherMain);
+
+      const guardianName = initialMotherMain ? motherName : (initialFatherMain ? fatherName : initialGuardianName);
+      const guardianCpf = initialMotherMain ? motherCpf : (initialFatherMain ? fatherCpf : '');
+      const guardianPhone = initialMotherMain ? motherPhone : (initialFatherMain ? fatherPhone : respPhone);
 
       const turmaFormatada = [matricula.serie_aluno, matricula.turma_aluno].filter(Boolean).join(' ');
 
@@ -364,11 +407,10 @@ export default function App() {
       };
 
       setFoundStudent(mappedStudent);
-
-      // Default main guardian: mother if exists, else father
-      const motherIsMain = Boolean(motherName);
-      setIsMotherMain(motherIsMain);
-      setIsFatherMain(!motherIsMain && Boolean(fatherName));
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      });
 
       setFormData({
         birthDate: birthDate,
@@ -377,10 +419,10 @@ export default function App() {
         cpf: documentos.cpf_aluno || '',
         rg: studentRg,
         rgDigit: studentRgDigit,
-        guardianName: guardianName,
-        guardianCpf: guardianCpf,
-        guardianPhone: guardianPhone,
-        guardianWhatsapp: guardianPhone,
+        guardianName: initialGuardianName,
+        guardianCpf: '',
+        guardianPhone: respPhone,
+        guardianWhatsapp: respPhone,
         guardianEmail: contactEmail,
         motherName: motherName,
         motherCpf: motherCpf,
@@ -409,6 +451,42 @@ export default function App() {
     }
   };
 
+  const handleOpenSaude = () => {
+    if (foundStudent) {
+      const activeGuardianName = isMotherMain 
+        ? formData.motherName 
+        : (isFatherMain ? formData.fatherName : formData.guardianName);
+      const activeGuardianPhone = isMotherMain 
+        ? formData.motherPhone 
+        : (isFatherMain ? formData.fatherPhone : formData.guardianPhone);
+
+      setFoundStudent({
+        ...foundStudent,
+        guardianName: activeGuardianName,
+        guardianPhone: activeGuardianPhone,
+        guardianWhatsapp: activeGuardianPhone,
+        motherName: formData.motherName,
+        motherPhone: formData.motherPhone,
+        fatherName: formData.fatherName,
+        fatherPhone: formData.fatherPhone,
+        gender: formData.gender,
+        race: formData.race,
+        cpf: formData.cpf,
+        rg: formData.rg,
+        rgDigit: formData.rgDigit,
+        cep: formData.cep,
+        street: formData.street,
+        number: formData.number,
+        complement: formData.complement,
+        neighborhood: formData.neighborhood,
+        city: formData.city,
+        state: formData.state,
+      });
+    }
+    setCurrentView('saude');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!foundStudent) return;
@@ -422,6 +500,33 @@ export default function App() {
     try {
       const studentId = Number(foundStudent.id);
 
+      // Determine who is the primary guardian
+      let finalGuardianName = '';
+      let finalGuardianCpf = '';
+      let finalGuardianPhone = '';
+      let finalGuardianWhatsapp = '';
+      let finalGuardianEmail = '';
+
+      if (isMotherMain) {
+        finalGuardianName = formData.motherName;
+        finalGuardianCpf = formData.motherCpf;
+        finalGuardianPhone = formData.motherPhone;
+        finalGuardianWhatsapp = formData.motherWhatsapp;
+        finalGuardianEmail = formData.motherEmail;
+      } else if (isFatherMain) {
+        finalGuardianName = formData.fatherName;
+        finalGuardianCpf = formData.fatherCpf;
+        finalGuardianPhone = formData.fatherPhone;
+        finalGuardianWhatsapp = formData.fatherWhatsapp;
+        finalGuardianEmail = formData.fatherEmail;
+      } else {
+        finalGuardianName = formData.guardianName;
+        finalGuardianCpf = formData.guardianCpf;
+        finalGuardianPhone = formData.guardianPhone;
+        finalGuardianWhatsapp = formData.guardianWhatsapp;
+        finalGuardianEmail = formData.guardianEmail;
+      }
+
       // 1. Update ALUNOS birth date if provided
       if (formData.birthDate) {
         await supabase
@@ -431,11 +536,6 @@ export default function App() {
       }
 
       // 2. Upsert ALUNOS_DADOS_GERAIS
-      const finalMotherName = isMotherMain ? formData.guardianName : (formData.motherName || '');
-      const finalMotherCpf = isMotherMain ? formData.guardianCpf : (formData.motherCpf || '');
-      const finalFatherName = isFatherMain ? formData.guardianName : (formData.fatherName || '');
-      const finalFatherCpf = isFatherMain ? formData.guardianCpf : (formData.fatherCpf || '');
-
       const { error: errorGerais } = await supabase
         .from('ALUNOS_DADOS_GERAIS')
         .upsert({
@@ -444,10 +544,10 @@ export default function App() {
           data_nasc_aluno: formData.birthDate || null,
           genero_aluno: formData.gender || null,
           raca_aluno: formData.race || null,
-          filiacao1_aluno: finalMotherName,
-          cpf_filiacao_1_aluno: finalMotherCpf,
-          filiacao2_aluno: finalFatherName,
-          cpf_filiacao_2_aluno: finalFatherCpf,
+          filiacao1_aluno: formData.motherName || '',
+          cpf_filiacao_1_aluno: formData.motherCpf || '',
+          filiacao2_aluno: formData.fatherName || '',
+          cpf_filiacao_2_aluno: formData.fatherCpf || '',
         }, { onConflict: 'id_aluno' });
 
       if (errorGerais) throw errorGerais;
@@ -504,20 +604,20 @@ export default function App() {
 
       const dadosCompletos = parseJson(existingContatos?.dados_completos);
 
-      if (isMotherMain || formData.motherPhone) {
-        dadosCompletos.tel_filiacao1_pessoal_numero = isMotherMain ? formData.guardianPhone : formData.motherPhone;
+      if (formData.motherPhone) {
+        dadosCompletos.tel_filiacao1_pessoal_numero = formData.motherPhone;
         dadosCompletos.tel_filiacao1_pessoal_tipo = 'Celular';
       }
-      if (isFatherMain || formData.fatherPhone) {
-        dadosCompletos.tel_filiacao2_pessoal_numero = isFatherMain ? formData.guardianPhone : formData.fatherPhone;
+      if (formData.fatherPhone) {
+        dadosCompletos.tel_filiacao2_pessoal_numero = formData.fatherPhone;
         dadosCompletos.tel_filiacao2_pessoal_tipo = 'Celular';
       }
-      if (formData.guardianPhone) {
-        dadosCompletos.tel_responsavel_pessoal_numero = formData.guardianPhone;
+      if (finalGuardianPhone) {
+        dadosCompletos.tel_responsavel_pessoal_numero = finalGuardianPhone;
         dadosCompletos.tel_responsavel_pessoal_tipo = 'Celular';
       }
 
-      const emailResponsavel = formData.guardianEmail || formData.motherEmail || formData.fatherEmail || null;
+      const emailResponsavel = finalGuardianEmail || formData.motherEmail || formData.fatherEmail || null;
 
       if (existingContatos) {
         const { error: contatosErr } = await supabase
@@ -540,7 +640,7 @@ export default function App() {
       }
 
       // 6. Record responsible name in ALUNOS_RESPONSAVEL
-      if (formData.guardianName) {
+      if (finalGuardianName) {
         const { data: existingResp } = await supabase
           .from('ALUNOS_RESPONSAVEL')
           .select('id')
@@ -550,12 +650,12 @@ export default function App() {
         if (existingResp && existingResp.length > 0) {
           await supabase
             .from('ALUNOS_RESPONSAVEL')
-            .update({ nome_aluno: formData.guardianName })
+            .update({ nome_aluno: finalGuardianName })
             .eq('id', existingResp[0].id);
         } else {
           await supabase
             .from('ALUNOS_RESPONSAVEL')
-            .insert({ id_aluno: studentId, nome_aluno: formData.guardianName });
+            .insert({ id_aluno: studentId, nome_aluno: finalGuardianName });
         }
       }
 
@@ -564,6 +664,7 @@ export default function App() {
       setSearchTerm('');
       setSearchBirthDate('');
       resetAllFormState();
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     } catch (err) {
       console.error('Save error:', err);
       setError('Erro ao salvar informações. Tente novamente.');
@@ -579,6 +680,7 @@ export default function App() {
       setSearchTerm('');
       setSearchBirthDate('');
       resetAllFormState();
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
   };
 
@@ -592,7 +694,7 @@ export default function App() {
       </header>
 
       {currentView === 'saude' && foundStudent ? (
-        <main className="max-w-4xl mx-auto py-8 px-4">
+        <main className="max-w-4xl mx-auto py-8 px-4 ficha-saude-view no-scrollbar">
           <FichaSaude student={foundStudent} onBack={() => setCurrentView('main')} />
         </main>
       ) : (
@@ -704,7 +806,10 @@ export default function App() {
             >
               <div className="bg-[#3b5998] p-8 relative rounded-t-2xl">
                 <button 
-                  onClick={() => setFoundStudent(null)}
+                  onClick={() => {
+                    setFoundStudent(null);
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                  }}
                   className="text-white/70 hover:text-white text-sm underline absolute right-8 top-8"
                 >
                   Voltar
@@ -899,75 +1004,7 @@ export default function App() {
                   </h3>
                   
                   <div className="space-y-6">
-                    {/* Responsável Principal */}
-                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                      <h4 className="font-bold text-[#3b5998] mb-4">Responsável Principal</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div className="space-y-2 md:col-span-8">
-                          <label className="text-sm font-semibold text-gray-600">Nome do Responsável</label>
-                          <input
-                            type="text"
-                            required
-                            value={formData.guardianName}
-                            onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                          />
-                        </div>
-                        <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">CPF</label>
-                          <input
-                            type="text"
-                            required
-                            value={formData.guardianCpf}
-                            onChange={(e) => setFormData({ ...formData, guardianCpf: e.target.value })}
-                            placeholder="000.000.000-00"
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                          />
-                        </div>
-                        <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">Telefone de Contato</label>
-                          <div className="relative">
-                            <input
-                              type="tel"
-                              required
-                              value={formData.guardianPhone}
-                              onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
-                              placeholder="(00) 00000-0000"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                            />
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                          </div>
-                        </div>
-                        <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">WhatsApp</label>
-                          <div className="relative">
-                            <input
-                              type="tel"
-                              required
-                              value={formData.guardianWhatsapp}
-                              onChange={(e) => setFormData({ ...formData, guardianWhatsapp: e.target.value })}
-                              placeholder="(00) 00000-0000"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                            />
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                          </div>
-                        </div>
-                        <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">E-mail</label>
-                          <div className="relative">
-                            <input
-                              type="email"
-                              value={formData.guardianEmail}
-                              onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                            />
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mãe */}
+                    {/* 1. Dados da Mãe */}
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
                         <h4 className="font-bold text-[#3b5998]">Dados da Mãe</h4>
@@ -976,17 +1013,10 @@ export default function App() {
                             type="checkbox"
                             checked={isMotherMain}
                             onChange={(e) => {
-                              setIsMotherMain(e.target.checked);
-                              if (e.target.checked) {
+                              const checked = e.target.checked;
+                              setIsMotherMain(checked);
+                              if (checked) {
                                 setIsFatherMain(false);
-                                setFormData(prev => ({
-                                  ...prev,
-                                  guardianName: prev.motherName || prev.guardianName,
-                                  guardianCpf: prev.motherCpf || prev.guardianCpf,
-                                  guardianPhone: prev.motherPhone || prev.guardianPhone,
-                                  guardianWhatsapp: prev.motherWhatsapp || prev.guardianWhatsapp,
-                                  guardianEmail: prev.motherEmail || prev.guardianEmail
-                                }));
                               }
                             }}
                             className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
@@ -999,21 +1029,20 @@ export default function App() {
                           <label className="text-sm font-semibold text-gray-600">Nome da Mãe</label>
                           <input
                             type="text"
-                            value={isMotherMain ? formData.guardianName : formData.motherName}
+                            value={formData.motherName}
                             onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
-                            disabled={isMotherMain}
-                            className={cn("w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isMotherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                            placeholder="Nome completo da mãe"
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
                           <label className="text-sm font-semibold text-gray-600">CPF da Mãe</label>
                           <input
                             type="text"
-                            value={isMotherMain ? formData.guardianCpf : formData.motherCpf}
+                            value={formData.motherCpf}
                             onChange={(e) => setFormData({ ...formData, motherCpf: e.target.value })}
-                            disabled={isMotherMain}
                             placeholder="000.000.000-00"
-                            className={cn("w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isMotherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
@@ -1021,11 +1050,10 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="tel"
-                              value={isMotherMain ? formData.guardianPhone : formData.motherPhone}
+                              value={formData.motherPhone}
                               onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })}
-                              disabled={isMotherMain}
                               placeholder="(00) 00000-0000"
-                              className={cn("w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isMotherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1035,11 +1063,10 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="tel"
-                              value={isMotherMain ? formData.guardianWhatsapp : formData.motherWhatsapp}
+                              value={formData.motherWhatsapp}
                               onChange={(e) => setFormData({ ...formData, motherWhatsapp: e.target.value })}
-                              disabled={isMotherMain}
                               placeholder="(00) 00000-0000"
-                              className={cn("w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isMotherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1049,10 +1076,10 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              value={isMotherMain ? formData.guardianEmail : formData.motherEmail}
+                              value={formData.motherEmail}
                               onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })}
-                              disabled={isMotherMain}
-                              className={cn("w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isMotherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                              placeholder="exemplo@email.com"
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                             />
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1060,7 +1087,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Pai */}
+                    {/* 2. Dados do Pai */}
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
                         <h4 className="font-bold text-[#3b5998]">Dados do Pai</h4>
@@ -1069,17 +1096,10 @@ export default function App() {
                             type="checkbox"
                             checked={isFatherMain}
                             onChange={(e) => {
-                              setIsFatherMain(e.target.checked);
-                              if (e.target.checked) {
+                              const checked = e.target.checked;
+                              setIsFatherMain(checked);
+                              if (checked) {
                                 setIsMotherMain(false);
-                                setFormData(prev => ({
-                                  ...prev,
-                                  guardianName: prev.fatherName || prev.guardianName,
-                                  guardianCpf: prev.fatherCpf || prev.guardianCpf,
-                                  guardianPhone: prev.fatherPhone || prev.guardianPhone,
-                                  guardianWhatsapp: prev.fatherWhatsapp || prev.guardianWhatsapp,
-                                  guardianEmail: prev.fatherEmail || prev.guardianEmail
-                                }));
                               }
                             }}
                             className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
@@ -1092,21 +1112,20 @@ export default function App() {
                           <label className="text-sm font-semibold text-gray-600">Nome do Pai</label>
                           <input
                             type="text"
-                            value={isFatherMain ? formData.guardianName : formData.fatherName}
+                            value={formData.fatherName}
                             onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
-                            disabled={isFatherMain}
-                            className={cn("w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isFatherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                            placeholder="Nome completo do pai"
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
                           <label className="text-sm font-semibold text-gray-600">CPF do Pai</label>
                           <input
                             type="text"
-                            value={isFatherMain ? formData.guardianCpf : formData.fatherCpf}
+                            value={formData.fatherCpf}
                             onChange={(e) => setFormData({ ...formData, fatherCpf: e.target.value })}
-                            disabled={isFatherMain}
                             placeholder="000.000.000-00"
-                            className={cn("w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isFatherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
@@ -1114,11 +1133,10 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="tel"
-                              value={isFatherMain ? formData.guardianPhone : formData.fatherPhone}
+                              value={formData.fatherPhone}
                               onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })}
-                              disabled={isFatherMain}
                               placeholder="(00) 00000-0000"
-                              className={cn("w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isFatherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1128,11 +1146,10 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="tel"
-                              value={isFatherMain ? formData.guardianWhatsapp : formData.fatherWhatsapp}
+                              value={formData.fatherWhatsapp}
                               onChange={(e) => setFormData({ ...formData, fatherWhatsapp: e.target.value })}
-                              disabled={isFatherMain}
                               placeholder="(00) 00000-0000"
-                              className={cn("w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isFatherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1142,16 +1159,108 @@ export default function App() {
                           <div className="relative">
                             <input
                               type="email"
-                              value={isFatherMain ? formData.guardianEmail : formData.fatherEmail}
+                              value={formData.fatherEmail}
                               onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })}
-                              disabled={isFatherMain}
-                              className={cn("w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all", isFatherMain ? "bg-gray-100 text-gray-500" : "bg-white")}
+                              placeholder="exemplo@email.com"
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
                             />
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
                         </div>
                       </div>
                     </div>
+
+                    {/* 3. Dados do Responsável (Aparece SOMENTE se nem a mãe nem o pai estiverem marcados como responsável) */}
+                    <AnimatePresence>
+                      {!isMotherMain && !isFatherMain && (
+                        <motion.div
+                          key="outro-responsavel"
+                          initial={{ opacity: 0, height: 0, y: -10 }}
+                          animate={{ opacity: 1, height: 'auto', y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -10 }}
+                          transition={{ duration: 0.25 }}
+                          className="bg-amber-50/70 p-6 rounded-xl border border-amber-200/80 shadow-sm overflow-hidden"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                            <div>
+                              <h4 className="font-bold text-[#3b5998] text-base">Responsável Principal (Outro Responsável)</h4>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Preencha os dados do responsável legal (ex: avó, avô, tio, tia, tutor legal).
+                              </p>
+                            </div>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 self-start sm:self-center">
+                              Outro Responsável
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div className="space-y-2 md:col-span-8">
+                              <label className="text-sm font-semibold text-gray-700">Nome do Responsável</label>
+                              <input
+                                type="text"
+                                required={!isMotherMain && !isFatherMain}
+                                value={formData.guardianName}
+                                onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                                placeholder="Nome completo do responsável legal"
+                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-4">
+                              <label className="text-sm font-semibold text-gray-700">CPF do Responsável</label>
+                              <input
+                                type="text"
+                                required={!isMotherMain && !isFatherMain}
+                                value={formData.guardianCpf}
+                                onChange={(e) => setFormData({ ...formData, guardianCpf: e.target.value })}
+                                placeholder="000.000.000-00"
+                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-4">
+                              <label className="text-sm font-semibold text-gray-700">Telefone de Contato</label>
+                              <div className="relative">
+                                <input
+                                  type="tel"
+                                  required={!isMotherMain && !isFatherMain}
+                                  value={formData.guardianPhone}
+                                  onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+                                  placeholder="(00) 00000-0000"
+                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                />
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                              </div>
+                            </div>
+                            <div className="space-y-2 md:col-span-4">
+                              <label className="text-sm font-semibold text-gray-700">WhatsApp</label>
+                              <div className="relative">
+                                <input
+                                  type="tel"
+                                  required={!isMotherMain && !isFatherMain}
+                                  value={formData.guardianWhatsapp}
+                                  onChange={(e) => setFormData({ ...formData, guardianWhatsapp: e.target.value })}
+                                  placeholder="(00) 00000-0000"
+                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                />
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                              </div>
+                            </div>
+                            <div className="space-y-2 md:col-span-4">
+                              <label className="text-sm font-semibold text-gray-700">E-mail</label>
+                              <div className="relative">
+                                <input
+                                  type="email"
+                                  value={formData.guardianEmail}
+                                  onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
+                                  placeholder="exemplo@email.com"
+                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                />
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </section>
 
@@ -1164,7 +1273,7 @@ export default function App() {
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => setCurrentView('saude')}
+                      onClick={handleOpenSaude}
                       className="w-full bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1967d2] border border-[#a8c7fa] font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
                     >
                       <Activity className="w-5 h-5" />

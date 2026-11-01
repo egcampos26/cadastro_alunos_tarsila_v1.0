@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+/* Ocultar barra de rolagem mantendo a rolagem ativa (Barra de rolagem invisível) */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important; /* IE e Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Regra específica para toda a visualização da Ficha de Saúde */
+.ficha-saude-view,
+.ficha-saude-view * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.ficha-saude-view::-webkit-scrollbar,
+.ficha-saude-view *::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}

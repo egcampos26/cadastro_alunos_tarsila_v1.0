@@ -157,6 +157,15 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
     loadData();
   }, [student.id]);
 
+  useEffect(() => {
+    document.body.classList.add('no-scrollbar');
+    document.documentElement.classList.add('no-scrollbar');
+    return () => {
+      document.body.classList.remove('no-scrollbar');
+      document.documentElement.classList.remove('no-scrollbar');
+    };
+  }, []);
+
   const loadData = async () => {
     try {
       setIsLoading(true);
@@ -283,7 +292,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
   );
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden print:shadow-none print:border-none print:m-0 print:p-0">
+    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden no-scrollbar ficha-saude-view print:shadow-none print:border-none print:m-0 print:p-0">
       
       {/* Botões Superiores - Escondidos na impressão */}
       <div className="bg-[#3b5998] p-6 flex items-center justify-between print:hidden sticky top-0 z-20">
@@ -333,7 +342,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
               </button>
             </div>
             
-            <div className="p-4 flex flex-col gap-4 max-h-[65vh] overflow-y-auto">
+            <div className="p-4 flex flex-col gap-4 max-h-[65vh] overflow-y-auto no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {!selectedElementId ? (
                 <>
                   <div>
@@ -517,7 +526,10 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
       )}
 
       {/* FORMULÁRIO TELA (Screen Only) */}
-      <div className={`p-4 md:p-8 max-h-[80vh] overflow-y-auto bg-gray-50 text-sm ${isPreviewMode ? 'hidden' : 'print:hidden'}`}>
+      <div 
+        className={`p-4 md:p-8 max-h-[80vh] overflow-y-auto no-scrollbar bg-gray-50 text-sm ${isPreviewMode ? 'hidden' : 'print:hidden'}`}
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         <div className="max-w-4xl mx-auto space-y-8 bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-200">
           
           <section>
