@@ -3,7 +3,7 @@ import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
 import { Student } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar } from 'lucide-react';
+import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText } from 'lucide-react';
 import { cn } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
 
@@ -126,9 +126,27 @@ const initialFormData = {
   birthDate: '',
   gender: '',
   race: '',
+  // Documentos do Aluno (ALUNOS_DOCUMENTOS)
   cpf: '',
   rg: '',
   rgDigit: '',
+  rgUf: '',
+  rgOrgao: '',
+  rgDate: '',
+  rne: '',
+  certidaoTipo: 'Certidão de Nascimento',
+  certidaoModelo: 'Novo',
+  certidaoMatricula: '',
+  certidaoNumero: '',
+  certidaoLivro: '',
+  certidaoFolha: '',
+  certidaoCartorio: '',
+  certidaoDistrito: '',
+  certidaoMunicipio: '',
+  certidaoUf: '',
+  certidaoDataEmissao: '',
+  nis: '',
+  cnsSus: '',
   guardianName: '',
   guardianCpf: '',
   guardianPhone: '',
@@ -151,6 +169,13 @@ const initialFormData = {
   neighborhood: '',
   city: '',
   state: '',
+  respCep: '',
+  respStreet: '',
+  respNumber: '',
+  respComplement: '',
+  respNeighborhood: '',
+  respCity: '',
+  respState: '',
   healthInfo: ''
 };
 
@@ -164,6 +189,7 @@ export default function App() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isMotherMain, setIsMotherMain] = useState(false);
   const [isFatherMain, setIsFatherMain] = useState(false);
+  const [sameAddressAsStudent, setSameAddressAsStudent] = useState(true);
   const [currentView, setCurrentView] = useState<'main' | 'saude'>('main');
 
   // Form state
@@ -173,6 +199,7 @@ export default function App() {
     setFormData(initialFormData);
     setIsMotherMain(false);
     setIsFatherMain(false);
+    setSameAddressAsStudent(true);
   };
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,6 +221,29 @@ export default function App() {
         }
       } catch (err) {
         console.error("Erro ao buscar CEP", err);
+      }
+    }
+  };
+
+  const handleRespCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cep = e.target.value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, respCep: e.target.value }));
+
+    if (cep.length === 8) {
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setFormData(prev => ({
+            ...prev,
+            respStreet: data.logradouro || '',
+            respNeighborhood: data.bairro || '',
+            respCity: data.localidade || '',
+            respState: data.uf || ''
+          }));
+        }
+      } catch (err) {
+        console.error("Erro ao buscar CEP do responsável", err);
       }
     }
   };
@@ -412,11 +462,22 @@ export default function App() {
       const addressCity = enderecos.cidade_aluno || respRecord.municipio_responsavel_aluno || 'São Paulo';
       const addressState = enderecos.estado_aluno || respRecord.uf_responsavel_aluno || 'SP';
 
-      const studentRg = documentos.rg_aluno === 'Não' ? '' : (documentos.rg_aluno || '');
-      const studentRgDigit = documentos.rg_digito_aluno === 'Sim' ? '' : (documentos.rg_digito_aluno || '');
+      const studentRg = (documentos.rg_aluno === 'Não' || documentos.rg_aluno === 'Sim') ? '' : (documentos.rg_aluno || '');
+      const studentRgDigit = (documentos.rg_digito_aluno === 'Sim' || documentos.rg_digito_aluno === 'Não') ? '' : (documentos.rg_digito_aluno || '');
+      const studentRgUf = documentos.rg_uf_aluno?.includes('-->') ? '' : (documentos.rg_uf_aluno || '');
+      const studentRgOrgao = documentos.rg_orgao_emissao_aluno?.includes('-->') ? '' : (documentos.rg_orgao_emissao_aluno || '');
+      const studentRgDate = documentos.rg_data_emissao_aluno || '';
+      const studentRne = (documentos.rne_aluno === 'Não' || documentos.rne_aluno === 'Sim') ? '' : (documentos.rne_aluno || '');
+
+      const certModelo = (documentos.certidao_nasc_modelo_aluno === 'Antigo' || (!documentos.certidao_nasc_matricula_aluno && documentos.certidao_nasc_numero_aluno)) ? 'Antigo' : 'Novo';
 
       const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || searchBirthDate;
       const turmaFormatada = [matricula.serie_aluno, matricula.turma_aluno].filter(Boolean).join(' ');
+
+      const isSameAddress = respRecord.mesmo_end_responsavel_aluno !== 'Não';
+      setSameAddressAsStudent(isSameAddress);
+
+      const respStreetFromDb = [respRecord.logradouro_responsavel_aluno, respRecord.endereco_responsavel_aluno].filter(Boolean).join(' ') || respRecord.endereco_responsavel_aluno || '';
 
       const mappedStudent: Student = {
         id: matched.id_aluno.toString(),
@@ -467,6 +528,23 @@ export default function App() {
         cpf: documentos.cpf_aluno || '',
         rg: studentRg,
         rgDigit: studentRgDigit,
+        rgUf: studentRgUf,
+        rgOrgao: studentRgOrgao,
+        rgDate: studentRgDate,
+        rne: studentRne,
+        certidaoTipo: documentos.tipo_certidao_civil_aluno || 'Certidão de Nascimento',
+        certidaoModelo: certModelo,
+        certidaoMatricula: documentos.certidao_nasc_matricula_aluno || '',
+        certidaoNumero: documentos.certidao_nasc_numero_aluno || '',
+        certidaoLivro: documentos.certidao_nasc_livro_aluno || '',
+        certidaoFolha: documentos.certidao_nasc_folha_aluno || '',
+        certidaoCartorio: documentos.certidao_nasc_cartorio_aluno || '',
+        certidaoDistrito: documentos.certidao_nasc_distrito_aluno || '',
+        certidaoMunicipio: documentos.certidao_nasc_municipio_aluno || '',
+        certidaoUf: documentos.certidao_nasc_uf_aluno || '',
+        certidaoDataEmissao: documentos.certidao_nasc_dt_emissao_aluno || '',
+        nis: documentos.nis_aluno || '',
+        cnsSus: documentos.cns_sus_aluno || '',
         guardianName: initialGuardianName,
         guardianCpf: initialGuardianCpf,
         guardianPhone: initialGuardianPhone,
@@ -489,6 +567,13 @@ export default function App() {
         neighborhood: addressNeighborhood,
         city: addressCity,
         state: addressState,
+        respCep: !isSameAddress ? (respRecord.cep_responsavel_aluno || '') : '',
+        respStreet: !isSameAddress ? respStreetFromDb : '',
+        respNumber: !isSameAddress ? (respRecord.numero_end_responsavel_aluno || '') : '',
+        respComplement: !isSameAddress ? (respRecord.complemento_end_responsavel_aluno || '') : '',
+        respNeighborhood: !isSameAddress ? (respRecord.bairro_responsavel_aluno || '') : '',
+        respCity: !isSameAddress ? (respRecord.municipio_responsavel_aluno || 'São Paulo') : '',
+        respState: !isSameAddress ? (respRecord.uf_responsavel_aluno || 'SP') : '',
         healthInfo: ''
       });
     } catch (err) {
@@ -609,9 +694,26 @@ export default function App() {
         .from('ALUNOS_DOCUMENTOS')
         .upsert({
           id_aluno: studentId,
-          cpf_aluno: formData.cpf,
-          rg_aluno: formData.rg,
-          rg_digito_aluno: formData.rgDigit,
+          cpf_aluno: formData.cpf || null,
+          rg_aluno: formData.rg || null,
+          rg_digito_aluno: formData.rgDigit || null,
+          rg_uf_aluno: formData.rgUf || null,
+          rg_orgao_emissao_aluno: formData.rgOrgao || null,
+          rg_data_emissao_aluno: formData.rgDate || null,
+          rne_aluno: formData.rne || null,
+          tipo_certidao_civil_aluno: formData.certidaoTipo || 'Certidão de Nascimento',
+          certidao_nasc_modelo_aluno: formData.certidaoModelo || 'Novo',
+          certidao_nasc_matricula_aluno: formData.certidaoModelo === 'Novo' ? (formData.certidaoMatricula || null) : null,
+          certidao_nasc_numero_aluno: formData.certidaoModelo === 'Antigo' ? (formData.certidaoNumero || null) : null,
+          certidao_nasc_livro_aluno: formData.certidaoModelo === 'Antigo' ? (formData.certidaoLivro || null) : null,
+          certidao_nasc_folha_aluno: formData.certidaoModelo === 'Antigo' ? (formData.certidaoFolha || null) : null,
+          certidao_nasc_cartorio_aluno: formData.certidaoCartorio || null,
+          certidao_nasc_distrito_aluno: formData.certidaoDistrito || null,
+          certidao_nasc_municipio_aluno: formData.certidaoMunicipio || null,
+          certidao_nasc_uf_aluno: formData.certidaoUf || null,
+          certidao_nasc_dt_emissao_aluno: formData.certidaoDataEmissao || null,
+          nis_aluno: formData.nis || null,
+          cns_sus_aluno: formData.cnsSus || null,
         }, { onConflict: 'id_aluno' });
 
       if (errorDocs) throw errorDocs;
@@ -650,6 +752,15 @@ export default function App() {
 
       // 5. Update / Upsert ALUNOS_RESPONSAVEL
       if (finalGuardianName) {
+        const respMesmoEnd = sameAddressAsStudent ? 'Sim' : 'Não';
+        const finalRespCep = sameAddressAsStudent ? formData.cep : (formData.respCep || formData.cep);
+        const finalRespStreet = sameAddressAsStudent ? formData.street : (formData.respStreet || formData.street);
+        const finalRespNumber = sameAddressAsStudent ? formData.number : (formData.respNumber || formData.number);
+        const finalRespComplement = sameAddressAsStudent ? formData.complement : (formData.respComplement || formData.complement);
+        const finalRespNeighborhood = sameAddressAsStudent ? formData.neighborhood : (formData.respNeighborhood || formData.neighborhood);
+        const finalRespCity = sameAddressAsStudent ? formData.city : (formData.respCity || formData.city);
+        const finalRespState = sameAddressAsStudent ? formData.state : (formData.respState || formData.state);
+
         const { error: respErr } = await supabase
           .from('ALUNOS_RESPONSAVEL')
           .upsert({
@@ -658,15 +769,15 @@ export default function App() {
             responsavel_aluno: respTipo,
             nome_responsavel_aluno: finalGuardianName,
             cpf_responsavel_aluno: finalGuardianCpf || null,
-            mesmo_end_responsavel_aluno: 'Sim',
-            cep_responsavel_aluno: formData.cep,
-            logradouro_responsavel_aluno: formData.street?.split(' ')[0] || 'Rua',
-            endereco_responsavel_aluno: formData.street,
-            numero_end_responsavel_aluno: formData.number,
-            complemento_end_responsavel_aluno: formData.complement,
-            bairro_responsavel_aluno: formData.neighborhood,
-            municipio_responsavel_aluno: formData.city,
-            uf_responsavel_aluno: formData.state,
+            mesmo_end_responsavel_aluno: respMesmoEnd,
+            cep_responsavel_aluno: finalRespCep,
+            logradouro_responsavel_aluno: finalRespStreet?.split(' ')[0] || 'Rua',
+            endereco_responsavel_aluno: finalRespStreet,
+            numero_end_responsavel_aluno: finalRespNumber,
+            complemento_end_responsavel_aluno: finalRespComplement,
+            bairro_responsavel_aluno: finalRespNeighborhood,
+            municipio_responsavel_aluno: finalRespCity,
+            uf_responsavel_aluno: finalRespState,
           }, { onConflict: 'id_aluno' });
 
         if (respErr) throw respErr;
@@ -730,6 +841,95 @@ export default function App() {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
   };
+
+  const renderDifferentAddressFields = (title: string) => (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mt-6 pt-6 border-t border-gray-200 overflow-hidden"
+    >
+      <h5 className="text-sm font-bold text-[#0f254e] flex items-center gap-2 mb-3">
+        <MapPin className="w-4 h-4 text-[#3b5998]" />
+        {title}
+      </h5>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="space-y-2 md:col-span-4">
+          <label className="text-sm font-semibold text-gray-600">CEP do Responsável</label>
+          <input
+            type="text"
+            maxLength={9}
+            value={formData.respCep}
+            onChange={handleRespCepChange}
+            placeholder="00000-000"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-8">
+          <label className="text-sm font-semibold text-gray-600">Rua</label>
+          <input
+            type="text"
+            value={formData.respStreet}
+            onChange={(e) => setFormData({ ...formData, respStreet: e.target.value })}
+            placeholder="Nome da rua / logradouro"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-3">
+          <label className="text-sm font-semibold text-gray-600">Número</label>
+          <input
+            type="text"
+            value={formData.respNumber}
+            onChange={(e) => setFormData({ ...formData, respNumber: e.target.value })}
+            placeholder="Nº"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-4">
+          <label className="text-sm font-semibold text-gray-600">Complemento</label>
+          <input
+            type="text"
+            value={formData.respComplement}
+            onChange={(e) => setFormData({ ...formData, respComplement: e.target.value })}
+            placeholder="Apto, Bloco, etc."
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-5">
+          <label className="text-sm font-semibold text-gray-600">Bairro</label>
+          <input
+            type="text"
+            value={formData.respNeighborhood}
+            onChange={(e) => setFormData({ ...formData, respNeighborhood: e.target.value })}
+            placeholder="Bairro"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-9">
+          <label className="text-sm font-semibold text-gray-600">Cidade</label>
+          <input
+            type="text"
+            value={formData.respCity}
+            onChange={(e) => setFormData({ ...formData, respCity: e.target.value })}
+            placeholder="Cidade"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-3">
+          <label className="text-sm font-semibold text-gray-600">UF</label>
+          <input
+            type="text"
+            maxLength={2}
+            value={formData.respState}
+            onChange={(e) => setFormData({ ...formData, respState: e.target.value.toUpperCase() })}
+            placeholder="UF"
+            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all uppercase"
+          />
+        </div>
+      </div>
+    </motion.div>
+  );
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100 print:bg-white">
@@ -925,37 +1125,277 @@ export default function App() {
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
-                    <div className="space-y-2 md:col-span-5">
-                      <label className="text-sm font-semibold text-gray-600">CPF</label>
-                      <input
-                        type="text"
-                        value={formData.cpf}
-                        onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                        placeholder="000.000.000-00"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                      />
+                </section>
+
+                {/* Documentos do Aluno */}
+                <section className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-6 space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+                    <h3 className="text-lg font-bold flex items-center gap-2 text-[#0f254e]">
+                      <FileText className="w-5 h-5 text-[#3b5998]" />
+                      Documentos do Aluno
+                    </h3>
+                    <span className="text-xs font-semibold px-2.5 py-1 bg-white border border-slate-200 text-slate-600 rounded-md shadow-sm">
+                      Tabela ALUNOS_DOCUMENTOS
+                    </span>
+                  </div>
+
+                  {/* Grupo 1: RG e CPF */}
+                  <div>
+                    <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider mb-3">RG e CPF</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                      <div className="space-y-2 md:col-span-4">
+                        <label className="text-sm font-semibold text-gray-700">CPF</label>
+                        <input
+                          type="text"
+                          value={formData.cpf}
+                          onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                          placeholder="000.000.000-00"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-3">
+                        <label className="text-sm font-semibold text-gray-700">RG</label>
+                        <input
+                          type="text"
+                          value={formData.rg}
+                          onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
+                          placeholder="00.000.000"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-1">
+                        <label className="text-sm font-semibold text-gray-700">Dígito</label>
+                        <input
+                          type="text"
+                          value={formData.rgDigit}
+                          onChange={(e) => setFormData({ ...formData, rgDigit: e.target.value.toUpperCase() })}
+                          placeholder="X"
+                          maxLength={2}
+                          className="w-full px-3 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-center font-bold text-gray-800 uppercase"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-1">
+                        <label className="text-sm font-semibold text-gray-700">UF RG</label>
+                        <input
+                          type="text"
+                          value={formData.rgUf}
+                          onChange={(e) => setFormData({ ...formData, rgUf: e.target.value.toUpperCase() })}
+                          placeholder="SP"
+                          maxLength={2}
+                          className="w-full px-2 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-center uppercase text-gray-800 font-bold"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-3">
+                        <label className="text-sm font-semibold text-gray-700">Órgão Emissor</label>
+                        <input
+                          type="text"
+                          value={formData.rgOrgao}
+                          onChange={(e) => setFormData({ ...formData, rgOrgao: e.target.value.toUpperCase() })}
+                          placeholder="Ex: SSP, Policia Civil"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all uppercase text-gray-800"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-4">
+                        <label className="text-sm font-semibold text-gray-700">Data de Emissão do RG</label>
+                        <input
+                          type="date"
+                          value={formData.rgDate ? formData.rgDate.split('T')[0] : ''}
+                          onChange={(e) => setFormData({ ...formData, rgDate: e.target.value })}
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2 md:col-span-5">
-                      <label className="text-sm font-semibold text-gray-600">RG</label>
-                      <input
-                        type="text"
-                        value={formData.rg}
-                        onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
-                        placeholder="00.000.000"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                      />
+                  </div>
+
+                  {/* Grupo 2: Certidão de Registro Civil */}
+                  <div className="pt-4 border-t border-slate-200/80">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                      <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider">
+                        Certidão de Registro Civil
+                      </h4>
+                      <div className="flex items-center gap-4 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
+                        <span className="text-xs font-semibold text-gray-600">Modelo da Certidão:</span>
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-gray-700">
+                          <input
+                            type="radio"
+                            name="certidaoModelo"
+                            value="Novo"
+                            checked={formData.certidaoModelo === 'Novo'}
+                            onChange={() => setFormData({ ...formData, certidaoModelo: 'Novo' })}
+                            className="text-[#3b5998] focus:ring-[#3b5998]"
+                          />
+                          Novo (com Matrícula)
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-gray-700">
+                          <input
+                            type="radio"
+                            name="certidaoModelo"
+                            value="Antigo"
+                            checked={formData.certidaoModelo === 'Antigo'}
+                            onChange={() => setFormData({ ...formData, certidaoModelo: 'Antigo' })}
+                            className="text-[#3b5998] focus:ring-[#3b5998]"
+                          />
+                          Antigo (Termo/Livro/Folha)
+                        </label>
+                      </div>
                     </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-sm font-semibold text-gray-600">Dígito</label>
-                      <input
-                        type="text"
-                        value={formData.rgDigit}
-                        onChange={(e) => setFormData({ ...formData, rgDigit: e.target.value })}
-                        placeholder="X"
-                        maxLength={2}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
-                      />
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                      <div className="space-y-2 md:col-span-4">
+                        <label className="text-sm font-semibold text-gray-700">Tipo de Certidão</label>
+                        <select
+                          value={formData.certidaoTipo}
+                          onChange={(e) => setFormData({ ...formData, certidaoTipo: e.target.value })}
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        >
+                          <option value="Certidão de Nascimento">Certidão de Nascimento</option>
+                          <option value="Certidão de Casamento">Certidão de Casamento</option>
+                          <option value="Outro">Outro</option>
+                        </select>
+                      </div>
+
+                      {formData.certidaoModelo === 'Novo' ? (
+                        <div className="space-y-2 md:col-span-8">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Número da Matrícula (32 dígitos)
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.certidaoMatricula}
+                            onChange={(e) => setFormData({ ...formData, certidaoMatricula: e.target.value })}
+                            placeholder="000000 00 00 0000 0 00000 000 0000000 00"
+                            maxLength={40}
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all font-mono tracking-wide text-gray-800"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-2 md:col-span-3">
+                            <label className="text-sm font-semibold text-gray-700">Termo / Número</label>
+                            <input
+                              type="text"
+                              value={formData.certidaoNumero}
+                              onChange={(e) => setFormData({ ...formData, certidaoNumero: e.target.value })}
+                              placeholder="Número do termo"
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-semibold text-gray-700">Livro</label>
+                            <input
+                              type="text"
+                              value={formData.certidaoLivro}
+                              onChange={(e) => setFormData({ ...formData, certidaoLivro: e.target.value })}
+                              placeholder="Livro"
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-3">
+                            <label className="text-sm font-semibold text-gray-700">Folha</label>
+                            <input
+                              type="text"
+                              value={formData.certidaoFolha}
+                              onChange={(e) => setFormData({ ...formData, certidaoFolha: e.target.value })}
+                              placeholder="Folha"
+                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      <div className="space-y-2 md:col-span-6">
+                        <label className="text-sm font-semibold text-gray-700">Nome do Cartório</label>
+                        <input
+                          type="text"
+                          value={formData.certidaoCartorio}
+                          onChange={(e) => setFormData({ ...formData, certidaoCartorio: e.target.value })}
+                          placeholder="Ex: Oficial de Registro Civil das Pessoas Naturais"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-6">
+                        <label className="text-sm font-semibold text-gray-700">Distrito / Subdistrito</label>
+                        <input
+                          type="text"
+                          value={formData.certidaoDistrito}
+                          onChange={(e) => setFormData({ ...formData, certidaoDistrito: e.target.value })}
+                          placeholder="Ex: Butantã, Santo Amaro, etc."
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-5">
+                        <label className="text-sm font-semibold text-gray-700">Município da Certidão</label>
+                        <input
+                          type="text"
+                          value={formData.certidaoMunicipio}
+                          onChange={(e) => setFormData({ ...formData, certidaoMunicipio: e.target.value })}
+                          placeholder="Município onde foi registrada"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-semibold text-gray-700">UF Certidão</label>
+                        <input
+                          type="text"
+                          value={formData.certidaoUf}
+                          onChange={(e) => setFormData({ ...formData, certidaoUf: e.target.value.toUpperCase() })}
+                          placeholder="SP"
+                          maxLength={2}
+                          className="w-full px-2 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-center uppercase text-gray-800 font-bold"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-5">
+                        <label className="text-sm font-semibold text-gray-700">Data de Emissão da Certidão</label>
+                        <input
+                          type="date"
+                          value={formData.certidaoDataEmissao ? formData.certidaoDataEmissao.split('T')[0] : ''}
+                          onChange={(e) => setFormData({ ...formData, certidaoDataEmissao: e.target.value })}
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grupo 3: Cadastros Sociais e Saúde */}
+                  <div className="pt-4 border-t border-slate-200/80">
+                    <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider mb-3">
+                      Outros Cadastros (SUS, NIS, RNE)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                      <div className="space-y-2 md:col-span-4">
+                        <label className="text-sm font-semibold text-gray-700">Cartão SUS (CNS)</label>
+                        <input
+                          type="text"
+                          value={formData.cnsSus}
+                          onChange={(e) => setFormData({ ...formData, cnsSus: e.target.value })}
+                          placeholder="000 0000 0000 0000"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-4">
+                        <label className="text-sm font-semibold text-gray-700">NIS / PIS</label>
+                        <input
+                          type="text"
+                          value={formData.nis}
+                          onChange={(e) => setFormData({ ...formData, nis: e.target.value })}
+                          placeholder="000.00000.00-0"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-4">
+                        <label className="text-sm font-semibold text-gray-700">RNE / CRNM (Estrangeiro)</label>
+                        <input
+                          type="text"
+                          value={formData.rne}
+                          onChange={(e) => setFormData({ ...formData, rne: e.target.value })}
+                          placeholder="Registro Nacional de Estrangeiro"
+                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                        />
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -1053,23 +1493,45 @@ export default function App() {
                   <div className="space-y-6">
                     {/* 1. Dados da Mãe */}
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-wrap">
                         <h4 className="font-bold text-[#3b5998]">Dados da Mãe</h4>
-                        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={isMotherMain}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setIsMotherMain(checked);
-                              if (checked) {
-                                setIsFatherMain(false);
-                              }
-                            }}
-                            className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
-                          />
-                          <span className="font-medium">É a responsável principal</span>
-                        </label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={isMotherMain}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setIsMotherMain(checked);
+                                if (checked) {
+                                  setIsFatherMain(false);
+                                }
+                              }}
+                              className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
+                            />
+                            <span className="font-medium">É a responsável principal</span>
+                          </label>
+
+                          <AnimatePresence>
+                            {isMotherMain && (
+                              <motion.label
+                                initial={{ opacity: 0, scale: 0.9, x: -10 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, x: -10 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-blue-50/70 px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm hover:bg-blue-100/70 transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={sameAddressAsStudent}
+                                  onChange={(e) => setSameAddressAsStudent(e.target.checked)}
+                                  className="rounded border-blue-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
+                                />
+                                <span className="font-medium text-[#0f254e]">O endereço é o mesmo do aluno</span>
+                              </motion.label>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="space-y-2 md:col-span-8">
@@ -1132,27 +1594,53 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+
+                      <AnimatePresence>
+                        {isMotherMain && !sameAddressAsStudent && renderDifferentAddressFields("Endereço da Mãe (Diferente do Aluno)")}
+                      </AnimatePresence>
                     </div>
 
                     {/* 2. Dados do Pai */}
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-wrap">
                         <h4 className="font-bold text-[#3b5998]">Dados do Pai</h4>
-                        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors">
-                          <input
-                            type="checkbox"
-                            checked={isFatherMain}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setIsFatherMain(checked);
-                              if (checked) {
-                                setIsMotherMain(false);
-                              }
-                            }}
-                            className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
-                          />
-                          <span className="font-medium">É o responsável principal</span>
-                        </label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={isFatherMain}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setIsFatherMain(checked);
+                                if (checked) {
+                                  setIsMotherMain(false);
+                                }
+                              }}
+                              className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
+                            />
+                            <span className="font-medium">É o responsável principal</span>
+                          </label>
+
+                          <AnimatePresence>
+                            {isFatherMain && (
+                              <motion.label
+                                initial={{ opacity: 0, scale: 0.9, x: -10 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, x: -10 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-blue-50/70 px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm hover:bg-blue-100/70 transition-colors"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={sameAddressAsStudent}
+                                  onChange={(e) => setSameAddressAsStudent(e.target.checked)}
+                                  className="rounded border-blue-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
+                                />
+                                <span className="font-medium text-[#0f254e]">O endereço é o mesmo do aluno</span>
+                              </motion.label>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                         <div className="space-y-2 md:col-span-8">
@@ -1215,6 +1703,10 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+
+                      <AnimatePresence>
+                        {isFatherMain && !sameAddressAsStudent && renderDifferentAddressFields("Endereço do Pai (Diferente do Aluno)")}
+                      </AnimatePresence>
                     </div>
 
                     {/* 3. Dados do Responsável (Aparece SOMENTE se nem a mãe nem o pai estiverem marcados como responsável) */}
@@ -1228,16 +1720,27 @@ export default function App() {
                           transition={{ duration: 0.25 }}
                           className="bg-amber-50/70 p-6 rounded-xl border border-amber-200/80 shadow-sm overflow-hidden"
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 flex-wrap">
                             <div>
                               <h4 className="font-bold text-[#3b5998] text-base">Responsável Principal (Outro Responsável)</h4>
                               <p className="text-xs text-gray-600 mt-1">
                                 Preencha os dados do responsável legal (ex: avó, avô, tio, tia, tutor legal).
                               </p>
                             </div>
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 self-start sm:self-center">
-                              Outro Responsável
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
+                              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer bg-white px-3 py-1.5 rounded-lg border border-amber-300 shadow-sm hover:bg-amber-50 transition-colors">
+                                <input
+                                  type="checkbox"
+                                  checked={sameAddressAsStudent}
+                                  onChange={(e) => setSameAddressAsStudent(e.target.checked)}
+                                  className="rounded border-amber-300 text-[#3b5998] focus:ring-[#3b5998] w-4 h-4"
+                                />
+                                <span className="font-medium text-[#0f254e]">O endereço é o mesmo do aluno</span>
+                              </label>
+                              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300">
+                                Outro Responsável
+                              </span>
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -1305,6 +1808,10 @@ export default function App() {
                               </div>
                             </div>
                           </div>
+
+                          <AnimatePresence>
+                            {!sameAddressAsStudent && renderDifferentAddressFields("Endereço do Responsável (Diferente do Aluno)")}
+                          </AnimatePresence>
                         </motion.div>
                       )}
                     </AnimatePresence>
