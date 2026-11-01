@@ -71,15 +71,33 @@ function normalizeText(text: string): string {
     .replace(/\s+/g, ' ');
 }
 
-// Helper to parse JSON safely
+// Helper to parse JSON safely (handles single or double-serialized JSON)
 function parseJson(val: any): Record<string, any> {
   if (!val) return {};
-  if (typeof val === 'object') return val;
-  try {
-    return JSON.parse(val);
-  } catch {
-    return {};
+  let current = val;
+  for (let i = 0; i < 2; i++) {
+    if (typeof current === 'string') {
+      try {
+        current = JSON.parse(current);
+      } catch {
+        break;
+      }
+    }
   }
+  return typeof current === 'object' && current !== null ? current : {};
+}
+
+// Helper to format phone numbers with DDD
+function formatPhone(ddd?: string, num?: string): string {
+  if (!num) return '';
+  const cleanNum = num.trim();
+  if (!cleanNum) return '';
+  if (cleanNum.includes('(')) return cleanNum;
+  const cleanDdd = (ddd || '').replace(/\D/g, '');
+  if (cleanDdd) {
+    return `(${cleanDdd}) ${cleanNum}`;
+  }
+  return cleanNum;
 }
 
 // Normalizer for Race select option
@@ -301,6 +319,7 @@ export default function App() {
       const documentos = getSingle(matched.ALUNOS_DOCUMENTOS);
       const enderecos = getSingle(matched.ALUNOS_ENDERECOS);
       const contatos = getSingle(matched.ALUNOS_CONTATOS);
+      const respRecord = getSingle(matched.ALUNOS_RESPONSAVEL);
       const dadosCompletos = parseJson(contatos.dados_completos);
 
       const matriculas = Array.isArray(matched.ALUNOS_MATRICULAS)
@@ -308,55 +327,71 @@ export default function App() {
         : (matched.ALUNOS_MATRICULAS ? [matched.ALUNOS_MATRICULAS] : []);
       const matricula = matriculas.find((m: any) => m.ano_letivo_aluno === 2026 || m.ano_letivo === 2026) || matriculas[0] || {};
 
-      const motherPhone = dadosCompletos.tel_filiacao1_pessoal_numero
-        ? `${dadosCompletos.tel_filiacao1_pessoal_ddd || ''} ${dadosCompletos.tel_filiacao1_pessoal_numero}`.trim()
-        : (dadosCompletos.tel_filiacao1_residencial_numero ? `${dadosCompletos.tel_filiacao1_residencial_ddd || ''} ${dadosCompletos.tel_filiacao1_residencial_numero}`.trim() : '');
+      let motherPhone = formatPhone(dadosCompletos.tel_filiacao1_pessoal_ddd, dadosCompletos.tel_filiacao1_pessoal_numero)
+        || formatPhone(dadosCompletos.tel_filiacao1_residencial_ddd, dadosCompletos.tel_filiacao1_residencial_numero);
 
-      const fatherPhone = dadosCompletos.tel_filiacao2_pessoal_numero
-        ? `${dadosCompletos.tel_filiacao2_pessoal_ddd || ''} ${dadosCompletos.tel_filiacao2_pessoal_numero}`.trim()
-        : (dadosCompletos.tel_filiacao2_residencial_numero ? `${dadosCompletos.tel_filiacao2_residencial_ddd || ''} ${dadosCompletos.tel_filiacao2_residencial_numero}`.trim() : '');
+      let fatherPhone = formatPhone(dadosCompletos.tel_filiacao2_pessoal_ddd, dadosCompletos.tel_filiacao2_pessoal_numero)
+        || formatPhone(dadosCompletos.tel_filiacao2_residencial_ddd, dadosCompletos.tel_filiacao2_residencial_numero);
 
-      const respPhone = dadosCompletos.tel_responsavel_pessoal_numero
-        ? `${dadosCompletos.tel_responsavel_pessoal_ddd || ''} ${dadosCompletos.tel_responsavel_pessoal_numero}`.trim()
-        : (motherPhone || fatherPhone || '');
+      const respPhone = formatPhone(dadosCompletos.tel_responsavel_pessoal_ddd, dadosCompletos.tel_responsavel_pessoal_numero)
+        || formatPhone(dadosCompletos.tel_responsavel_residencial_ddd, dadosCompletos.tel_responsavel_residencial_numero);
 
-      const contactEmail = contatos.email_responsavel || contatos.email_aluno || '';
+      const motherName = (dadosGerais.filiacao1_aluno || '').trim();
+      let motherCpf = (dadosGerais.cpf_filiacao_1_aluno || '').trim();
 
-      const motherName = dadosGerais.filiacao1_aluno || '';
-      const motherCpf = dadosGerais.cpf_filiacao_1_aluno || '';
-      const fatherName = dadosGerais.filiacao2_aluno || '';
-      const fatherCpf = dadosGerais.cpf_filiacao_2_aluno || '';
+      const fatherName = (dadosGerais.filiacao2_aluno || '').trim();
+      let fatherCpf = (dadosGerais.cpf_filiacao_2_aluno || '').trim();
 
-      const studentRg = documentos.rg_aluno === 'Não' ? '' : (documentos.rg_aluno || '');
-      const studentRgDigit = documentos.rg_digito_aluno === 'Sim' ? '' : (documentos.rg_digito_aluno || '');
-
-      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || searchBirthDate;
+      const respTipo = (respRecord.responsavel_aluno || '').trim();
+      const respNome = (respRecord.nome_responsavel_aluno || '').trim();
+      const respCpf = (respRecord.cpf_responsavel_aluno || '').trim();
 
       // Check ALUNOS_RESPONSAVEL to determine if mother, father, or someone else was the registered guardian
-      const responsaveisList = Array.isArray(matched.ALUNOS_RESPONSAVEL)
-        ? matched.ALUNOS_RESPONSAVEL
-        : (matched.ALUNOS_RESPONSAVEL ? [matched.ALUNOS_RESPONSAVEL] : []);
-      const savedResp = responsaveisList.find((r: any) => r.nome_aluno && r.nome_aluno.trim());
-      const savedRespName = savedResp ? savedResp.nome_aluno.trim() : '';
-
       let initialMotherMain = false;
       let initialFatherMain = false;
       let initialGuardianName = '';
+      let initialGuardianCpf = '';
+      let initialGuardianPhone = '';
+      let initialGuardianWhatsapp = '';
+      let initialGuardianEmail = '';
 
-      if (savedRespName) {
-        if (motherName && normalizeText(savedRespName) === normalizeText(motherName)) {
-          initialMotherMain = true;
-        } else if (fatherName && normalizeText(savedRespName) === normalizeText(fatherName)) {
-          initialFatherMain = true;
-        } else {
-          // Another person (e.g. grandmother, aunt, etc.)
-          initialGuardianName = savedRespName;
+      const isRespMother = respTipo === 'Filiação 1' || (motherName && respNome && normalizeText(respNome) === normalizeText(motherName));
+      const isRespFather = respTipo === 'Filiação 2' || (fatherName && respNome && normalizeText(respNome) === normalizeText(fatherName));
+
+      if (isRespMother) {
+        initialMotherMain = true;
+        initialFatherMain = false;
+        if (!motherCpf && respCpf) {
+          motherCpf = respCpf;
         }
+        if (!motherPhone && respPhone) {
+          motherPhone = respPhone;
+        }
+      } else if (isRespFather) {
+        initialMotherMain = false;
+        initialFatherMain = true;
+        if (!fatherCpf && respCpf) {
+          fatherCpf = respCpf;
+        }
+        if (!fatherPhone && respPhone) {
+          fatherPhone = respPhone;
+        }
+      } else if (respNome) {
+        // Another person (e.g. grandmother, aunt, tutor legal) is registered as the main guardian
+        initialMotherMain = false;
+        initialFatherMain = false;
+        initialGuardianName = respNome;
+        initialGuardianCpf = respCpf;
+        initialGuardianPhone = respPhone || motherPhone || fatherPhone || '';
+        initialGuardianWhatsapp = respPhone || motherPhone || fatherPhone || '';
+        initialGuardianEmail = contatos.email_responsavel || '';
       } else {
-        // Default to mother if exists, else father
+        // Fallback: Default to mother if exists, else father
         if (motherName) {
           initialMotherMain = true;
+          initialFatherMain = false;
         } else if (fatherName) {
+          initialMotherMain = false;
           initialFatherMain = true;
         }
       }
@@ -364,10 +399,23 @@ export default function App() {
       setIsMotherMain(initialMotherMain);
       setIsFatherMain(initialFatherMain);
 
-      const guardianName = initialMotherMain ? motherName : (initialFatherMain ? fatherName : initialGuardianName);
-      const guardianCpf = initialMotherMain ? motherCpf : (initialFatherMain ? fatherCpf : '');
-      const guardianPhone = initialMotherMain ? motherPhone : (initialFatherMain ? fatherPhone : respPhone);
+      const activeGuardianName = initialMotherMain ? motherName : (initialFatherMain ? fatherName : initialGuardianName);
+      const activeGuardianCpf = initialMotherMain ? motherCpf : (initialFatherMain ? fatherCpf : initialGuardianCpf);
+      const activeGuardianPhone = initialMotherMain ? (motherPhone || respPhone) : (initialFatherMain ? (fatherPhone || respPhone) : initialGuardianPhone);
+      const activeGuardianEmail = initialMotherMain ? (contatos.email_responsavel || '') : (initialFatherMain ? (contatos.email_responsavel || '') : initialGuardianEmail);
 
+      const addressCep = enderecos.cep_aluno || respRecord.cep_responsavel_aluno || '';
+      const addressStreet = enderecos.logradouro_aluno || [respRecord.logradouro_responsavel_aluno, respRecord.endereco_responsavel_aluno].filter(Boolean).join(' ') || '';
+      const addressNumber = enderecos.numero_aluno || respRecord.numero_end_responsavel_aluno || '';
+      const addressComplement = enderecos.complemento_aluno || respRecord.complemento_end_responsavel_aluno || '';
+      const addressNeighborhood = enderecos.bairro_aluno || respRecord.bairro_responsavel_aluno || '';
+      const addressCity = enderecos.cidade_aluno || respRecord.municipio_responsavel_aluno || 'São Paulo';
+      const addressState = enderecos.estado_aluno || respRecord.uf_responsavel_aluno || 'SP';
+
+      const studentRg = documentos.rg_aluno === 'Não' ? '' : (documentos.rg_aluno || '');
+      const studentRgDigit = documentos.rg_digito_aluno === 'Sim' ? '' : (documentos.rg_digito_aluno || '');
+
+      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || searchBirthDate;
       const turmaFormatada = [matricula.serie_aluno, matricula.turma_aluno].filter(Boolean).join(' ');
 
       const mappedStudent: Student = {
@@ -381,28 +429,28 @@ export default function App() {
         cpf: documentos.cpf_aluno || '',
         rg: studentRg,
         rgDigit: studentRgDigit,
-        guardianName: guardianName,
-        guardianCpf: guardianCpf,
-        guardianPhone: guardianPhone,
-        guardianWhatsapp: guardianPhone,
-        guardianEmail: contactEmail,
+        guardianName: activeGuardianName,
+        guardianCpf: activeGuardianCpf,
+        guardianPhone: activeGuardianPhone,
+        guardianWhatsapp: activeGuardianPhone,
+        guardianEmail: activeGuardianEmail,
         motherName: motherName,
         motherCpf: motherCpf,
         motherPhone: motherPhone,
         motherWhatsapp: motherPhone,
-        motherEmail: contactEmail,
+        motherEmail: initialMotherMain ? (contatos.email_responsavel || '') : '',
         fatherName: fatherName,
         fatherCpf: fatherCpf,
         fatherPhone: fatherPhone,
         fatherWhatsapp: fatherPhone,
-        fatherEmail: contactEmail,
-        cep: enderecos.cep_aluno || '',
-        street: enderecos.logradouro_aluno || '',
-        number: enderecos.numero_aluno || '',
-        complement: enderecos.complemento_aluno || '',
-        neighborhood: enderecos.bairro_aluno || '',
-        city: enderecos.cidade_aluno || '',
-        state: enderecos.estado_aluno || '',
+        fatherEmail: initialFatherMain ? (contatos.email_responsavel || '') : '',
+        cep: addressCep,
+        street: addressStreet,
+        number: addressNumber,
+        complement: addressComplement,
+        neighborhood: addressNeighborhood,
+        city: addressCity,
+        state: addressState,
         healthInfo: ''
       };
 
@@ -420,27 +468,27 @@ export default function App() {
         rg: studentRg,
         rgDigit: studentRgDigit,
         guardianName: initialGuardianName,
-        guardianCpf: '',
-        guardianPhone: respPhone,
-        guardianWhatsapp: respPhone,
-        guardianEmail: contactEmail,
+        guardianCpf: initialGuardianCpf,
+        guardianPhone: initialGuardianPhone,
+        guardianWhatsapp: initialGuardianWhatsapp,
+        guardianEmail: initialGuardianEmail,
         motherName: motherName,
         motherCpf: motherCpf,
         motherPhone: motherPhone,
         motherWhatsapp: motherPhone,
-        motherEmail: contactEmail,
+        motherEmail: initialMotherMain ? (contatos.email_responsavel || '') : '',
         fatherName: fatherName,
         fatherCpf: fatherCpf,
         fatherPhone: fatherPhone,
         fatherWhatsapp: fatherPhone,
-        fatherEmail: contactEmail,
-        cep: enderecos.cep_aluno || '',
-        street: enderecos.logradouro_aluno || '',
-        number: enderecos.numero_aluno || '',
-        complement: enderecos.complemento_aluno || '',
-        neighborhood: enderecos.bairro_aluno || '',
-        city: enderecos.cidade_aluno || '',
-        state: enderecos.estado_aluno || '',
+        fatherEmail: initialFatherMain ? (contatos.email_responsavel || '') : '',
+        cep: addressCep,
+        street: addressStreet,
+        number: addressNumber,
+        complement: addressComplement,
+        neighborhood: addressNeighborhood,
+        city: addressCity,
+        state: addressState,
         healthInfo: ''
       });
     } catch (err) {
@@ -506,20 +554,24 @@ export default function App() {
       let finalGuardianPhone = '';
       let finalGuardianWhatsapp = '';
       let finalGuardianEmail = '';
+      let respTipo = 'Outro Responsável';
 
       if (isMotherMain) {
+        respTipo = 'Filiação 1';
         finalGuardianName = formData.motherName;
         finalGuardianCpf = formData.motherCpf;
         finalGuardianPhone = formData.motherPhone;
         finalGuardianWhatsapp = formData.motherWhatsapp;
         finalGuardianEmail = formData.motherEmail;
       } else if (isFatherMain) {
+        respTipo = 'Filiação 2';
         finalGuardianName = formData.fatherName;
         finalGuardianCpf = formData.fatherCpf;
         finalGuardianPhone = formData.fatherPhone;
         finalGuardianWhatsapp = formData.fatherWhatsapp;
         finalGuardianEmail = formData.fatherEmail;
       } else {
+        respTipo = 'Outro Responsável';
         finalGuardianName = formData.guardianName;
         finalGuardianCpf = formData.guardianCpf;
         finalGuardianPhone = formData.guardianPhone;
@@ -580,6 +632,7 @@ export default function App() {
         bairro_aluno: formData.neighborhood,
         cidade_aluno: formData.city,
         estado_aluno: formData.state,
+        tipo_endereco: 'aluno'
       };
 
       if (existingAddress && existingAddress.length > 0) {
@@ -595,7 +648,31 @@ export default function App() {
         if (addrErr) throw addrErr;
       }
 
-      // 5. Update / Insert ALUNOS_CONTATOS
+      // 5. Update / Upsert ALUNOS_RESPONSAVEL
+      if (finalGuardianName) {
+        const { error: respErr } = await supabase
+          .from('ALUNOS_RESPONSAVEL')
+          .upsert({
+            id_aluno: studentId,
+            nome_aluno: foundStudent.name,
+            responsavel_aluno: respTipo,
+            nome_responsavel_aluno: finalGuardianName,
+            cpf_responsavel_aluno: finalGuardianCpf || null,
+            mesmo_end_responsavel_aluno: 'Sim',
+            cep_responsavel_aluno: formData.cep,
+            logradouro_responsavel_aluno: formData.street?.split(' ')[0] || 'Rua',
+            endereco_responsavel_aluno: formData.street,
+            numero_end_responsavel_aluno: formData.number,
+            complemento_end_responsavel_aluno: formData.complement,
+            bairro_responsavel_aluno: formData.neighborhood,
+            municipio_responsavel_aluno: formData.city,
+            uf_responsavel_aluno: formData.state,
+          }, { onConflict: 'id_aluno' });
+
+        if (respErr) throw respErr;
+      }
+
+      // 6. Update / Upsert ALUNOS_CONTATOS
       const { data: existingContatos } = await supabase
         .from('ALUNOS_CONTATOS')
         .select('dados_completos')
@@ -619,45 +696,15 @@ export default function App() {
 
       const emailResponsavel = finalGuardianEmail || formData.motherEmail || formData.fatherEmail || null;
 
-      if (existingContatos) {
-        const { error: contatosErr } = await supabase
-          .from('ALUNOS_CONTATOS')
-          .update({
-            email_responsavel: emailResponsavel,
-            dados_completos: JSON.stringify(dadosCompletos)
-          })
-          .eq('id_aluno', studentId);
-        if (contatosErr) throw contatosErr;
-      } else {
-        const { error: contatosErr } = await supabase
-          .from('ALUNOS_CONTATOS')
-          .insert({
-            id_aluno: studentId,
-            email_responsavel: emailResponsavel,
-            dados_completos: JSON.stringify(dadosCompletos)
-          });
-        if (contatosErr) throw contatosErr;
-      }
+      const { error: contatosErr } = await supabase
+        .from('ALUNOS_CONTATOS')
+        .upsert({
+          id_aluno: studentId,
+          email_responsavel: emailResponsavel,
+          dados_completos: JSON.stringify(dadosCompletos)
+        }, { onConflict: 'id_aluno' });
 
-      // 6. Record responsible name in ALUNOS_RESPONSAVEL
-      if (finalGuardianName) {
-        const { data: existingResp } = await supabase
-          .from('ALUNOS_RESPONSAVEL')
-          .select('id')
-          .eq('id_aluno', studentId)
-          .limit(1);
-
-        if (existingResp && existingResp.length > 0) {
-          await supabase
-            .from('ALUNOS_RESPONSAVEL')
-            .update({ nome_aluno: finalGuardianName })
-            .eq('id', existingResp[0].id);
-        } else {
-          await supabase
-            .from('ALUNOS_RESPONSAVEL')
-            .insert({ id_aluno: studentId, nome_aluno: finalGuardianName });
-        }
-      }
+      if (contatosErr) throw contatosErr;
 
       setIsSuccess(true);
       setFoundStudent(null);
