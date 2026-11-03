@@ -664,13 +664,18 @@ export default function App() {
         finalGuardianEmail = formData.guardianEmail;
       }
 
-      // 1. Update ALUNOS birth date if provided
+      // 1. Update ALUNOS birth date and mark status_cadastro as 'salva'
+      const alunosUpdate: Record<string, any> = {
+        status_cadastro: 'salva',
+        data_cadastro_salvo: new Date().toISOString()
+      };
       if (formData.birthDate) {
-        await supabase
-          .from('ALUNOS')
-          .update({ data_nasc_aluno: formData.birthDate })
-          .eq('id_aluno', studentId);
+        alunosUpdate.data_nasc_aluno = formData.birthDate;
       }
+      await supabase
+        .from('ALUNOS')
+        .update(alunosUpdate)
+        .eq('id_aluno', studentId);
 
       // 2. Upsert ALUNOS_DADOS_GERAIS
       const { error: errorGerais } = await supabase

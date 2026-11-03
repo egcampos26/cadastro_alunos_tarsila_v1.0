@@ -213,6 +213,15 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
         .select();
 
       if (error) throw error;
+
+      // Sincroniza status_cadastro na tabela ALUNOS
+      await supabase
+        .from('ALUNOS')
+        .update({
+          status_cadastro: 'salva',
+          data_cadastro_salvo: new Date().toISOString()
+        })
+        .eq('id_aluno', student.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
