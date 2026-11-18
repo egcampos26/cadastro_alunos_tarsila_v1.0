@@ -179,6 +179,49 @@ const initialFormData = {
   healthInfo: ''
 };
 
+const formatDateMask = (value: string) => {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+};
+
+const parseDateToISO = (value: string) => {
+  const clean = value.trim();
+  if (clean.includes('/')) {
+    const [day, month, year] = clean.split('/');
+    if (day && month && year && year.length === 4) {
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+  return clean;
+};
+
+const isFieldEmpty = (value: string | number | undefined | null) => {
+  if (value === undefined || value === null) return true;
+  const str = String(value).trim();
+  if (str === '') return true;
+  // Considera sequências apenas de zeros e pontuação como vazio (ex: "000.000.000-00", "00.000.000", "00000-000")
+  const digitsOnly = str.replace(/\D/g, '');
+  if (digitsOnly.length > 1 && /^0+$/.test(digitsOnly)) return true;
+  return false;
+};
+
+const getFieldClass = (
+  value: string | number | undefined | null,
+  extra: string = ''
+) => {
+  const empty = isFieldEmpty(value);
+  return cn(
+    "w-full px-4 py-3 rounded-lg outline-none transition-all duration-150 text-gray-800",
+    empty
+      ? "bg-red-500/10 border border-red-300 placeholder:text-gray-400 focus:bg-red-500/[0.08] focus:border-red-400 focus:ring-2 focus:ring-red-200"
+      : "bg-white border border-gray-200 focus:ring-2 focus:ring-[#3b5998] focus:border-transparent",
+    extra
+  );
+};
+
+
 export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchBirthDate, setSearchBirthDate] = useState('');
@@ -194,6 +237,11 @@ export default function App() {
 
   // Form state
   const [formData, setFormData] = useState(initialFormData);
+
+    const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const masked = formatDateMask(e.target.value);
+    setSearchBirthDate(masked);
+  };
 
   const resetAllFormState = () => {
     setFormData(initialFormData);
@@ -279,10 +327,13 @@ export default function App() {
       return;
     }
 
-    if (!searchBirthDate) {
-      setError('Por favor, informe a data de nascimento do aluno.');
+    const cleanDateDigits = searchBirthDate.replace(/\D/g, '');
+    if (!cleanDateDigits || cleanDateDigits.length < 8) {
+      setError('Por favor, informe a data de nascimento completa do aluno (DD/MM/AAAA).');
       return;
     }
+
+    const isoBirthDate = parseDateToISO(searchBirthDate);
 
     setIsSearching(true);
     setError(null);
@@ -303,7 +354,7 @@ export default function App() {
           ALUNOS_DADOS_SAUDE (*),
           ALUNOS_RESPONSAVEL (*)
         `)
-        .eq('data_nasc_aluno', searchBirthDate);
+        .eq('data_nasc_aluno', isoBirthDate);
 
       if (searchError) throw searchError;
 
@@ -471,7 +522,7 @@ export default function App() {
 
       const certModelo = (documentos.certidao_nasc_modelo_aluno === 'Antigo' || (!documentos.certidao_nasc_matricula_aluno && documentos.certidao_nasc_numero_aluno)) ? 'Antigo' : 'Novo';
 
-      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || searchBirthDate;
+      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || isoBirthDate;
       const turmaFormatada = [matricula.serie_aluno, matricula.turma_aluno].filter(Boolean).join(' ');
 
       const isSameAddress = respRecord.mesmo_end_responsavel_aluno !== 'Não';
@@ -868,7 +919,7 @@ export default function App() {
             value={formData.respCep}
             onChange={handleRespCepChange}
             placeholder="00000-000"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+            className={getFieldClass(formData.respCep)}
           />
         </div>
         <div className="space-y-2 md:col-span-8">
@@ -878,7 +929,7 @@ export default function App() {
             value={formData.respStreet}
             onChange={(e) => setFormData({ ...formData, respStreet: e.target.value })}
             placeholder="Nome da rua / logradouro"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+            className={getFieldClass(formData.respStreet)}
           />
         </div>
         <div className="space-y-2 md:col-span-3">
@@ -888,7 +939,7 @@ export default function App() {
             value={formData.respNumber}
             onChange={(e) => setFormData({ ...formData, respNumber: e.target.value })}
             placeholder="Nº"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+            className={getFieldClass(formData.respNumber)}
           />
         </div>
         <div className="space-y-2 md:col-span-4">
@@ -898,7 +949,7 @@ export default function App() {
             value={formData.respComplement}
             onChange={(e) => setFormData({ ...formData, respComplement: e.target.value })}
             placeholder="Apto, Bloco, etc."
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+            className={getFieldClass(formData.respComplement)}
           />
         </div>
         <div className="space-y-2 md:col-span-5">
@@ -908,7 +959,7 @@ export default function App() {
             value={formData.respNeighborhood}
             onChange={(e) => setFormData({ ...formData, respNeighborhood: e.target.value })}
             placeholder="Bairro"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+            className={getFieldClass(formData.respNeighborhood)}
           />
         </div>
         <div className="space-y-2 md:col-span-9">
@@ -918,7 +969,7 @@ export default function App() {
             value={formData.respCity}
             onChange={(e) => setFormData({ ...formData, respCity: e.target.value })}
             placeholder="Cidade"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+            className={getFieldClass(formData.respCity)}
           />
         </div>
         <div className="space-y-2 md:col-span-3">
@@ -929,7 +980,7 @@ export default function App() {
             value={formData.respState}
             onChange={(e) => setFormData({ ...formData, respState: e.target.value.toUpperCase() })}
             placeholder="UF"
-            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all uppercase"
+            className={getFieldClass(formData.respState, "uppercase font-bold text-center")}
           />
         </div>
       </div>
@@ -1025,11 +1076,12 @@ export default function App() {
                       </label>
                       <div className="relative">
                         <input
-                          type="date"
+                          type="text"
+                          inputMode="numeric"
                           value={searchBirthDate}
-                          onChange={(e) => setSearchBirthDate(e.target.value)}
-                          max={new Date().toISOString().split('T')[0]}
-                          min="1990-01-01"
+                          onChange={handleBirthDateChange}
+                          placeholder="DD/MM/AAAA"
+                          maxLength={10}
                           className="w-full pl-10 sm:pl-11 pr-3 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800"
                           required
                         />
@@ -1128,7 +1180,7 @@ export default function App() {
                         required
                         value={formData.gender}
                         onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all appearance-none"
+                        className={getFieldClass(formData.gender, "appearance-none")}
                       >
                         <option value="" disabled>Selecione...</option>
                         <option value="Masculino">Masculino</option>
@@ -1141,7 +1193,7 @@ export default function App() {
                         required
                         value={formData.race}
                         onChange={(e) => setFormData({ ...formData, race: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all appearance-none"
+                        className={getFieldClass(formData.race, "appearance-none")}
                       >
                         <option value="" disabled>Selecione...</option>
                         <option value="Branca">Branca</option>
@@ -1178,7 +1230,7 @@ export default function App() {
                           value={formData.cpf}
                           onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
                           placeholder="000.000.000-00"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.cpf)}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-3">
@@ -1188,7 +1240,7 @@ export default function App() {
                           value={formData.rg}
                           onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
                           placeholder="00.000.000"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.rg)}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-1">
@@ -1199,7 +1251,7 @@ export default function App() {
                           onChange={(e) => setFormData({ ...formData, rgDigit: e.target.value.toUpperCase() })}
                           placeholder="X"
                           maxLength={2}
-                          className="w-full px-3 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-center font-bold text-gray-800 uppercase"
+                          className={getFieldClass(formData.rgDigit, "px-3 text-center font-bold uppercase")}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-1">
@@ -1210,7 +1262,7 @@ export default function App() {
                           onChange={(e) => setFormData({ ...formData, rgUf: e.target.value.toUpperCase() })}
                           placeholder="SP"
                           maxLength={2}
-                          className="w-full px-2 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-center uppercase text-gray-800 font-bold"
+                          className={getFieldClass(formData.rgUf, "px-2 text-center uppercase font-bold")}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-3">
@@ -1220,7 +1272,7 @@ export default function App() {
                           value={formData.rgOrgao}
                           onChange={(e) => setFormData({ ...formData, rgOrgao: e.target.value.toUpperCase() })}
                           placeholder="Ex: SSP, Policia Civil"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all uppercase text-gray-800"
+                          className={getFieldClass(formData.rgOrgao, "uppercase")}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-4">
@@ -1229,7 +1281,7 @@ export default function App() {
                           type="date"
                           value={formData.rgDate ? formData.rgDate.split('T')[0] : ''}
                           onChange={(e) => setFormData({ ...formData, rgDate: e.target.value })}
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.rgDate)}
                         />
                       </div>
                     </div>
@@ -1274,7 +1326,7 @@ export default function App() {
                         <select
                           value={formData.certidaoTipo}
                           onChange={(e) => setFormData({ ...formData, certidaoTipo: e.target.value })}
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.certidaoTipo)}
                         >
                           <option value="Certidão de Nascimento">Certidão de Nascimento</option>
                           <option value="Certidão de Casamento">Certidão de Casamento</option>
@@ -1293,7 +1345,7 @@ export default function App() {
                             onChange={(e) => setFormData({ ...formData, certidaoMatricula: e.target.value })}
                             placeholder="000000 00 00 0000 0 00000 000 0000000 00"
                             maxLength={40}
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all font-mono tracking-wide text-gray-800"
+                            className={getFieldClass(formData.certidaoMatricula, "font-mono tracking-wide")}
                           />
                         </div>
                       ) : (
@@ -1305,7 +1357,7 @@ export default function App() {
                               value={formData.certidaoNumero}
                               onChange={(e) => setFormData({ ...formData, certidaoNumero: e.target.value })}
                               placeholder="Número do termo"
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                              className={getFieldClass(formData.certidaoNumero)}
                             />
                           </div>
                           <div className="space-y-2 md:col-span-2">
@@ -1315,7 +1367,7 @@ export default function App() {
                               value={formData.certidaoLivro}
                               onChange={(e) => setFormData({ ...formData, certidaoLivro: e.target.value })}
                               placeholder="Livro"
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                              className={getFieldClass(formData.certidaoLivro)}
                             />
                           </div>
                           <div className="space-y-2 md:col-span-3">
@@ -1325,7 +1377,7 @@ export default function App() {
                               value={formData.certidaoFolha}
                               onChange={(e) => setFormData({ ...formData, certidaoFolha: e.target.value })}
                               placeholder="Folha"
-                              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                              className={getFieldClass(formData.certidaoFolha)}
                             />
                           </div>
                         </>
@@ -1338,7 +1390,7 @@ export default function App() {
                           value={formData.certidaoCartorio}
                           onChange={(e) => setFormData({ ...formData, certidaoCartorio: e.target.value })}
                           placeholder="Ex: Oficial de Registro Civil das Pessoas Naturais"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.certidaoCartorio)}
                         />
                       </div>
 
@@ -1349,7 +1401,7 @@ export default function App() {
                           value={formData.certidaoDistrito}
                           onChange={(e) => setFormData({ ...formData, certidaoDistrito: e.target.value })}
                           placeholder="Ex: Butantã, Santo Amaro, etc."
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.certidaoDistrito)}
                         />
                       </div>
 
@@ -1360,7 +1412,7 @@ export default function App() {
                           value={formData.certidaoMunicipio}
                           onChange={(e) => setFormData({ ...formData, certidaoMunicipio: e.target.value })}
                           placeholder="Município onde foi registrada"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.certidaoMunicipio)}
                         />
                       </div>
 
@@ -1372,7 +1424,7 @@ export default function App() {
                           onChange={(e) => setFormData({ ...formData, certidaoUf: e.target.value.toUpperCase() })}
                           placeholder="SP"
                           maxLength={2}
-                          className="w-full px-2 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-center uppercase text-gray-800 font-bold"
+                          className={getFieldClass(formData.certidaoUf, "px-2 text-center uppercase font-bold")}
                         />
                       </div>
 
@@ -1382,7 +1434,7 @@ export default function App() {
                           type="date"
                           value={formData.certidaoDataEmissao ? formData.certidaoDataEmissao.split('T')[0] : ''}
                           onChange={(e) => setFormData({ ...formData, certidaoDataEmissao: e.target.value })}
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.certidaoDataEmissao)}
                         />
                       </div>
                     </div>
@@ -1401,7 +1453,7 @@ export default function App() {
                           value={formData.cnsSus}
                           onChange={(e) => setFormData({ ...formData, cnsSus: e.target.value })}
                           placeholder="000 0000 0000 0000"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800 font-mono"
+                          className={getFieldClass(formData.cnsSus, "font-mono")}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-4">
@@ -1411,7 +1463,7 @@ export default function App() {
                           value={formData.nis}
                           onChange={(e) => setFormData({ ...formData, nis: e.target.value })}
                           placeholder="000.00000.00-0"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800 font-mono"
+                          className={getFieldClass(formData.nis, "font-mono")}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-4">
@@ -1421,7 +1473,7 @@ export default function App() {
                           value={formData.rne}
                           onChange={(e) => setFormData({ ...formData, rne: e.target.value })}
                           placeholder="Registro Nacional de Estrangeiro"
-                          className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all text-gray-800"
+                          className={getFieldClass(formData.rne)}
                         />
                       </div>
                     </div>
@@ -1444,7 +1496,7 @@ export default function App() {
                         value={formData.cep}
                         onChange={handleCepChange}
                         placeholder="00000-000"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                        className={getFieldClass(formData.cep)}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-8">
@@ -1454,7 +1506,7 @@ export default function App() {
                         required
                         value={formData.street}
                         onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                        className={getFieldClass(formData.street)}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-3">
@@ -1464,7 +1516,7 @@ export default function App() {
                         required
                         value={formData.number}
                         onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                        className={getFieldClass(formData.number)}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-4">
@@ -1474,7 +1526,7 @@ export default function App() {
                         value={formData.complement}
                         onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
                         placeholder="Apto, Bloco, etc."
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                        className={getFieldClass(formData.complement)}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-5">
@@ -1484,7 +1536,7 @@ export default function App() {
                         required
                         value={formData.neighborhood}
                         onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                        className={getFieldClass(formData.neighborhood)}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-9">
@@ -1494,7 +1546,7 @@ export default function App() {
                         required
                         value={formData.city}
                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                        className={getFieldClass(formData.city)}
                       />
                     </div>
                     <div className="space-y-2 md:col-span-3">
@@ -1505,7 +1557,7 @@ export default function App() {
                         maxLength={2}
                         value={formData.state}
                         onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all uppercase"
+                        className={getFieldClass(formData.state, "uppercase font-bold text-center")}
                       />
                     </div>
                   </div>
@@ -1569,7 +1621,7 @@ export default function App() {
                             value={formData.motherName}
                             onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
                             placeholder="Nome completo da mãe"
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                            className={getFieldClass(formData.motherName)}
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
@@ -1579,7 +1631,7 @@ export default function App() {
                             value={formData.motherCpf}
                             onChange={(e) => setFormData({ ...formData, motherCpf: e.target.value })}
                             placeholder="000.000.000-00"
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                            className={getFieldClass(formData.motherCpf)}
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
@@ -1590,7 +1642,7 @@ export default function App() {
                               value={formData.motherPhone}
                               onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })}
                               placeholder="(00) 00000-0000"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              className={getFieldClass(formData.motherPhone, "pl-10 pr-4")}
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1603,7 +1655,7 @@ export default function App() {
                               value={formData.motherWhatsapp}
                               onChange={(e) => setFormData({ ...formData, motherWhatsapp: e.target.value })}
                               placeholder="(00) 00000-0000"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              className={getFieldClass(formData.motherWhatsapp, "pl-10 pr-4")}
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1616,7 +1668,7 @@ export default function App() {
                               value={formData.motherEmail}
                               onChange={(e) => setFormData({ ...formData, motherEmail: e.target.value })}
                               placeholder="exemplo@email.com"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              className={getFieldClass(formData.motherEmail, "pl-10 pr-4")}
                             />
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1678,7 +1730,7 @@ export default function App() {
                             value={formData.fatherName}
                             onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
                             placeholder="Nome completo do pai"
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                            className={getFieldClass(formData.fatherName)}
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
@@ -1688,7 +1740,7 @@ export default function App() {
                             value={formData.fatherCpf}
                             onChange={(e) => setFormData({ ...formData, fatherCpf: e.target.value })}
                             placeholder="000.000.000-00"
-                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                            className={getFieldClass(formData.fatherCpf)}
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
@@ -1699,7 +1751,7 @@ export default function App() {
                               value={formData.fatherPhone}
                               onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })}
                               placeholder="(00) 00000-0000"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              className={getFieldClass(formData.fatherPhone, "pl-10 pr-4")}
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1712,7 +1764,7 @@ export default function App() {
                               value={formData.fatherWhatsapp}
                               onChange={(e) => setFormData({ ...formData, fatherWhatsapp: e.target.value })}
                               placeholder="(00) 00000-0000"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              className={getFieldClass(formData.fatherWhatsapp, "pl-10 pr-4")}
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1725,7 +1777,7 @@ export default function App() {
                               value={formData.fatherEmail}
                               onChange={(e) => setFormData({ ...formData, fatherEmail: e.target.value })}
                               placeholder="exemplo@email.com"
-                              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                              className={getFieldClass(formData.fatherEmail, "pl-10 pr-4")}
                             />
                             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1780,7 +1832,7 @@ export default function App() {
                                 value={formData.guardianName}
                                 onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
                                 placeholder="Nome completo do responsável legal"
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                className={getFieldClass(formData.guardianName)}
                               />
                             </div>
                             <div className="space-y-2 md:col-span-4">
@@ -1791,7 +1843,7 @@ export default function App() {
                                 value={formData.guardianCpf}
                                 onChange={(e) => setFormData({ ...formData, guardianCpf: e.target.value })}
                                 placeholder="000.000.000-00"
-                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                className={getFieldClass(formData.guardianCpf)}
                               />
                             </div>
                             <div className="space-y-2 md:col-span-4">
@@ -1803,7 +1855,7 @@ export default function App() {
                                   value={formData.guardianPhone}
                                   onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
                                   placeholder="(00) 00000-0000"
-                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                  className={getFieldClass(formData.guardianPhone, "pl-10 pr-4")}
                                 />
                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                               </div>
@@ -1817,7 +1869,7 @@ export default function App() {
                                   value={formData.guardianWhatsapp}
                                   onChange={(e) => setFormData({ ...formData, guardianWhatsapp: e.target.value })}
                                   placeholder="(00) 00000-0000"
-                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                  className={getFieldClass(formData.guardianWhatsapp, "pl-10 pr-4")}
                                 />
                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                               </div>
@@ -1830,7 +1882,7 @@ export default function App() {
                                   value={formData.guardianEmail}
                                   onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
                                   placeholder="exemplo@email.com"
-                                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#3b5998] outline-none transition-all"
+                                  className={getFieldClass(formData.guardianEmail, "pl-10 pr-4")}
                                 />
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                               </div>

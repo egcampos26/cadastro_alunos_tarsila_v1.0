@@ -4,6 +4,7 @@ import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X, Bold, Ita
 import { supabase } from '../lib/supabase';
 import { FichaSaudeData, initialFichaSaudeData } from '../types/saude';
 import { Student } from '../types';
+import { cn } from '../lib/utils';
 
 interface FichaSaudeProps {
   student: Student;
@@ -41,6 +42,27 @@ export interface PrintConfig {
   elementHeights: Record<string, number>;
   elementStyles: Record<string, ElementStyle>;
 }
+
+
+const isFieldEmpty = (value: string | number | undefined | null) => {
+  if (value === undefined || value === null) return true;
+  const str = String(value).trim();
+  if (str === '') return true;
+  const digitsOnly = str.replace(/\D/g, '');
+  if (digitsOnly.length > 1 && /^0+$/.test(digitsOnly)) return true;
+  return false;
+};
+
+const getSaudeFieldClass = (value: string | number | undefined | null, extra: string = '') => {
+  const empty = isFieldEmpty(value);
+  return cn(
+    "border p-2 rounded-lg w-full transition-all outline-none",
+    empty 
+      ? "bg-red-500/10 border-red-300 placeholder:text-gray-400 focus:bg-red-500/[0.08] focus:border-red-400 focus:ring-2 focus:ring-red-200" 
+      : "bg-white border-gray-300 focus:border-[#3b5998] focus:ring-2 focus:ring-[#3b5998]/20",
+    extra
+  );
+};
 
 const defaultPrintConfig: PrintConfig = {
   page1Height: 277,
@@ -244,33 +266,6 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
       } else {
         return { ...prev, [field]: current.filter(item => item !== value) };
       }
-    });
-  };
-
-  const updateVacina = (vacina: string, dose: keyof typeof initialFichaSaudeData.situacao_vacinal.BCG, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      situacao_vacinal: {
-        ...prev.situacao_vacinal,
-        [vacina]: {
-          ...prev.situacao_vacinal[vacina],
-          [dose]: checked
-        }
-      }
-    }));
-  };
-
-  const updateSaudeBucal = (field: 'mes_ano' | 'risco_carie' | 'fluorterapia', index: number, value: string) => {
-    setFormData(prev => {
-      const newArray = [...prev.saude_bucal[field]];
-      newArray[index] = value;
-      return {
-        ...prev,
-        saude_bucal: {
-          ...prev.saude_bucal,
-          [field]: newArray
-        }
-      };
     });
   };
 
@@ -561,7 +556,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">1 – Teve algum problema de saúde ao nascimento?</label>
                 <YesNoRadio checked={formData.q1_problema_nascimento} onChange={v => setFormData({...formData, q1_problema_nascimento: v})} name="q1" />
-                {formData.q1_problema_nascimento && <input type="text" placeholder="Qual?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q1_qual} onChange={e => setFormData({...formData, q1_qual: e.target.value})} />}
+                {formData.q1_problema_nascimento && <input type="text" placeholder="Qual?" className={getSaudeFieldClass(formData.q1_qual, "mt-1")} value={formData.q1_qual} onChange={e => setFormData({...formData, q1_qual: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
@@ -572,25 +567,25 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">3 – Foi internado (a) alguma vez?</label>
                 <YesNoRadio checked={formData.q3_internado} onChange={v => setFormData({...formData, q3_internado: v})} name="q3" />
-                {formData.q3_internado && <input type="text" placeholder="Especificar (motivo e idade)" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q3_motivo_idade} onChange={e => setFormData({...formData, q3_motivo_idade: e.target.value})} />}
+                {formData.q3_internado && <input type="text" placeholder="Especificar (motivo e idade)" className={getSaudeFieldClass(formData.q3_motivo_idade, "mt-1")} value={formData.q3_motivo_idade} onChange={e => setFormData({...formData, q3_motivo_idade: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">4 – Tem algum problema de saúde?</label>
                 <YesNoRadio checked={formData.q4_problema_saude} onChange={v => setFormData({...formData, q4_problema_saude: v})} name="q4" />
-                {formData.q4_problema_saude && <input type="text" placeholder="Qual?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q4_qual} onChange={e => setFormData({...formData, q4_qual: e.target.value})} />}
+                {formData.q4_problema_saude && <input type="text" placeholder="Qual?" className={getSaudeFieldClass(formData.q4_qual, "mt-1")} value={formData.q4_qual} onChange={e => setFormData({...formData, q4_qual: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">5 – Está fazendo algum tipo de tratamento de saúde?</label>
                 <YesNoRadio checked={formData.q5_tratamento} onChange={v => setFormData({...formData, q5_tratamento: v})} name="q5" />
-                {formData.q5_tratamento && <input type="text" placeholder="Qual e onde?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q5_qual_onde} onChange={e => setFormData({...formData, q5_qual_onde: e.target.value})} />}
+                {formData.q5_tratamento && <input type="text" placeholder="Qual e onde?" className={getSaudeFieldClass(formData.q5_qual_onde, "mt-1")} value={formData.q5_qual_onde} onChange={e => setFormData({...formData, q5_qual_onde: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">6 – Necessita de dieta especial?</label>
                 <YesNoRadio checked={formData.q6_dieta} onChange={v => setFormData({...formData, q6_dieta: v})} name="q6" />
-                {formData.q6_dieta && <input type="text" placeholder="Por que?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q6_por_que} onChange={e => setFormData({...formData, q6_por_que: e.target.value})} />}
+                {formData.q6_dieta && <input type="text" placeholder="Por que?" className={getSaudeFieldClass(formData.q6_por_que, "mt-1")} value={formData.q6_por_que} onChange={e => setFormData({...formData, q6_por_que: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
@@ -598,7 +593,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 <YesNoRadio checked={formData.q7_deficiencia} onChange={v => setFormData({...formData, q7_deficiencia: v})} name="q7" />
                 {formData.q7_deficiencia && (
                   <div className="space-y-3 mt-2">
-                    <input type="text" placeholder="Qual?" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q7_qual} onChange={e => setFormData({...formData, q7_qual: e.target.value})} />
+                    <input type="text" placeholder="Qual?" className={getSaudeFieldClass(formData.q7_qual)} value={formData.q7_qual} onChange={e => setFormData({...formData, q7_qual: e.target.value})} />
                     <div className="flex flex-wrap gap-4">
                       {['visual', 'auditiva', 'mental', 'física', 'múltipla'].map(tipo => (
                         <label key={tipo} className="flex items-center gap-2">
@@ -614,31 +609,31 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">8 – Pode praticar atividades físicas?</label>
                 <YesNoRadio checked={formData.q8_atividade_fisica} onChange={v => setFormData({...formData, q8_atividade_fisica: v})} name="q8" />
-                {!formData.q8_atividade_fisica && <input type="text" placeholder="Por que não?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q8_nao_por_que} onChange={e => setFormData({...formData, q8_nao_por_que: e.target.value})} />}
+                {!formData.q8_atividade_fisica && <input type="text" placeholder="Por que não?" className={getSaudeFieldClass(formData.q8_nao_por_que, "mt-1")} value={formData.q8_nao_por_que} onChange={e => setFormData({...formData, q8_nao_por_que: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">9 – Existe algum problema de saúde na família?</label>
                 <YesNoRadio checked={formData.q9_problema_familia} onChange={v => setFormData({...formData, q9_problema_familia: v})} name="q9" />
-                {formData.q9_problema_familia && <input type="text" placeholder="Qual?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q9_qual} onChange={e => setFormData({...formData, q9_qual: e.target.value})} />}
+                {formData.q9_problema_familia && <input type="text" placeholder="Qual?" className={getSaudeFieldClass(formData.q9_qual, "mt-1")} value={formData.q9_qual} onChange={e => setFormData({...formData, q9_qual: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">10 – Qual é a Unidade Básica de Saúde que utiliza?</label>
-                <input type="text" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q10_ubs} onChange={e => setFormData({...formData, q10_ubs: e.target.value})} />
+                <input type="text" className={getSaudeFieldClass(formData.q10_ubs)} value={formData.q10_ubs} onChange={e => setFormData({...formData, q10_ubs: e.target.value})} />
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">11 – Tem Convênio Médico?</label>
                 <YesNoRadio checked={formData.q11_convenio} onChange={v => setFormData({...formData, q11_convenio: v})} name="q11" />
-                {formData.q11_convenio && <input type="text" placeholder="Qual?" className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.q11_qual} onChange={e => setFormData({...formData, q11_qual: e.target.value})} />}
+                {formData.q11_convenio && <input type="text" placeholder="Qual?" className={getSaudeFieldClass(formData.q11_qual, "mt-1")} value={formData.q11_qual} onChange={e => setFormData({...formData, q11_qual: e.target.value})} />}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">12 – Em caso de febre, a escola está autorizada a medicar com:</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
-                  <input type="text" placeholder="Medicamento" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q12_medicamento_febre} onChange={e => setFormData({...formData, q12_medicamento_febre: e.target.value})} />
-                  <input type="text" placeholder="Dose" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q12_dose} onChange={e => setFormData({...formData, q12_dose: e.target.value})} />
+                  <input type="text" placeholder="Medicamento" className={getSaudeFieldClass(formData.q12_medicamento_febre)} value={formData.q12_medicamento_febre} onChange={e => setFormData({...formData, q12_medicamento_febre: e.target.value})} />
+                  <input type="text" placeholder="Dose" className={getSaudeFieldClass(formData.q12_dose)} value={formData.q12_dose} onChange={e => setFormData({...formData, q12_dose: e.target.value})} />
                 </div>
               </div>
 
@@ -647,7 +642,7 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 <YesNoRadio checked={formData.q13_alergia} onChange={v => setFormData({...formData, q13_alergia: v})} name="q13" />
                 {formData.q13_alergia && (
                   <div className="space-y-3 mt-2">
-                    <input type="text" placeholder="Qual?" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q13_qual} onChange={e => setFormData({...formData, q13_qual: e.target.value})} />
+                    <input type="text" placeholder="Qual?" className={getSaudeFieldClass(formData.q13_qual)} value={formData.q13_qual} onChange={e => setFormData({...formData, q13_qual: e.target.value})} />
                     <div className="flex flex-wrap gap-4">
                       {['Alimento', 'Medicamento', 'Outro'].map(tipo => (
                         <label key={tipo} className="flex items-center gap-2">
@@ -656,23 +651,23 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                         </label>
                       ))}
                     </div>
-                    {formData.q13_tipo.includes('Outro') && <input type="text" placeholder="Especificar outro" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q13_especificar} onChange={e => setFormData({...formData, q13_especificar: e.target.value})} />}
+                    {formData.q13_tipo.includes('Outro') && <input type="text" placeholder="Especificar outro" className={getSaudeFieldClass(formData.q13_especificar)} value={formData.q13_especificar} onChange={e => setFormData({...formData, q13_especificar: e.target.value})} />}
                   </div>
                 )}
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">14 – Informação de problemas identificados na vivência escolar (ex: cognitivo, afetivo)</label>
-                <textarea className="border border-gray-300 p-2 rounded-lg w-full min-h-[80px]" value={formData.q14_vivencia} onChange={e => setFormData({...formData, q14_vivencia: e.target.value})} />
+                <textarea className={getSaudeFieldClass(formData.q14_vivencia, "min-h-[80px]")} value={formData.q14_vivencia} onChange={e => setFormData({...formData, q14_vivencia: e.target.value})} />
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">15 – Em caso de doença, a escola deverá chamar:</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
-                  <input type="text" placeholder="Nome 1" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q15_emergencia_nome_1} onChange={e => setFormData({...formData, q15_emergencia_nome_1: e.target.value})} />
-                  <input type="text" placeholder="Telefone 1" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q15_emergencia_tel_1} onChange={e => setFormData({...formData, q15_emergencia_tel_1: e.target.value})} />
-                  <input type="text" placeholder="Nome 2" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q15_emergencia_nome_2} onChange={e => setFormData({...formData, q15_emergencia_nome_2: e.target.value})} />
-                  <input type="text" placeholder="Telefone 2" className="border border-gray-300 p-2 rounded-lg w-full" value={formData.q15_emergencia_tel_2} onChange={e => setFormData({...formData, q15_emergencia_tel_2: e.target.value})} />
+                  <input type="text" placeholder="Nome 1" className={getSaudeFieldClass(formData.q15_emergencia_nome_1)} value={formData.q15_emergencia_nome_1} onChange={e => setFormData({...formData, q15_emergencia_nome_1: e.target.value})} />
+                  <input type="text" placeholder="Telefone 1" className={getSaudeFieldClass(formData.q15_emergencia_tel_1)} value={formData.q15_emergencia_tel_1} onChange={e => setFormData({...formData, q15_emergencia_tel_1: e.target.value})} />
+                  <input type="text" placeholder="Nome 2" className={getSaudeFieldClass(formData.q15_emergencia_nome_2)} value={formData.q15_emergencia_nome_2} onChange={e => setFormData({...formData, q15_emergencia_nome_2: e.target.value})} />
+                  <input type="text" placeholder="Telefone 2" className={getSaudeFieldClass(formData.q15_emergencia_tel_2)} value={formData.q15_emergencia_tel_2} onChange={e => setFormData({...formData, q15_emergencia_tel_2: e.target.value})} />
                 </div>
               </div>
             </div>
@@ -703,101 +698,6 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
               <div className="col-span-1 md:col-span-2 mt-2">
                 <label className="font-semibold">Especificar doença/tratamento*</label>
                 <textarea className="border border-gray-300 p-2 rounded-lg w-full mt-1" value={formData.diag_especificar} onChange={e => setFormData({...formData, diag_especificar: e.target.value})} />
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bold border-b pb-2 text-[#0f254e] mb-4">Situação Vacinal</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse bg-white text-left">
-                <thead>
-                  <tr className="bg-gray-100 text-gray-700">
-                    <th className="p-3 border">Tipo de Vacina</th>
-                    <th className="p-3 border text-center">1ª dose</th>
-                    <th className="p-3 border text-center">2ª dose</th>
-                    <th className="p-3 border text-center">3ª dose</th>
-                    <th className="p-3 border text-center">1º reforço</th>
-                    <th className="p-3 border text-center">2º reforço</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {['BCG', 'Sabin', 'DPT', 'Tetravalente', 'Hib', 'Sarampo', 'TripliceViral', 'HepatiteB', 'Outra'].map(vacina => (
-                    <tr key={vacina} className="hover:bg-gray-50">
-                      <td className="p-3 border font-medium">{vacina === 'TripliceViral' ? 'Tríplice viral' : vacina === 'HepatiteB' ? 'Hepatite B' : vacina}</td>
-                      {(['d1', 'd2', 'd3', 'ref1', 'ref2'] as const).map(dose => (
-                        <td key={dose} className="p-3 border text-center">
-                          <input type="checkbox" className="w-5 h-5 rounded text-[#3b5998] cursor-pointer"
-                                 checked={formData.situacao_vacinal[vacina as keyof typeof formData.situacao_vacinal]?.[dose] || false}
-                                 onChange={e => updateVacina(vacina, dose, e.target.checked)} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bold border-b pb-2 text-[#0f254e] mb-4">Teste de Acuidade Visual</h3>
-            <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><label className="font-semibold text-xs block">Data</label><input type="date" className="border p-2 rounded w-full" value={formData.acuidade_visual.data} onChange={e => setFormData({...formData, acuidade_visual: {...formData.acuidade_visual, data: e.target.value}})} /></div>
-                <div><label className="font-semibold text-xs block">Idade</label><input type="text" className="border p-2 rounded w-full" value={formData.acuidade_visual.idade} onChange={e => setFormData({...formData, acuidade_visual: {...formData.acuidade_visual, idade: e.target.value}})} /></div>
-                <div><label className="font-semibold text-xs block">Resultado OD</label><input type="text" className="border p-2 rounded w-full" value={formData.acuidade_visual.resultado_od} onChange={e => setFormData({...formData, acuidade_visual: {...formData.acuidade_visual, resultado_od: e.target.value}})} /></div>
-                <div><label className="font-semibold text-xs block">Resultado OE</label><input type="text" className="border p-2 rounded w-full" value={formData.acuidade_visual.resultado_oe} onChange={e => setFormData({...formData, acuidade_visual: {...formData.acuidade_visual, resultado_oe: e.target.value}})} /></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="font-semibold text-xs block">Consulta Oftalmo (Datas)</label>
-                  <div className="flex gap-2">
-                    <input type="date" className="border p-2 rounded w-full" value={formData.acuidade_visual.consulta_oftalmo_data_1} onChange={e => setFormData({...formData, acuidade_visual: {...formData.acuidade_visual, consulta_oftalmo_data_1: e.target.value}})} />
-                    <input type="date" className="border p-2 rounded w-full" value={formData.acuidade_visual.consulta_oftalmo_data_2} onChange={e => setFormData({...formData, acuidade_visual: {...formData.acuidade_visual, consulta_oftalmo_data_2: e.target.value}})} />
-                  </div>
-                </div>
-                <div>
-                  <label className="font-semibold text-xs block mb-2">Utiliza óculos ou lentes corretivas?</label>
-                  <YesNoRadio checked={formData.usa_oculos} onChange={v => setFormData({...formData, usa_oculos: v})} name="usa_oculos" />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bold border-b pb-2 text-[#0f254e] mb-4">Saúde Auditiva</h3>
-            <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="font-semibold text-sm block mb-2">Ouve bem?</label>
-                  <YesNoRadio checked={formData.ouve_bem} onChange={v => setFormData({...formData, ouve_bem: v})} name="ouve_bem" />
-                </div>
-                <div>
-                  <label className="font-semibold text-sm block mb-2">Tem atraso ou alteração da fala?</label>
-                  <YesNoRadio checked={formData.atraso_fala} onChange={v => setFormData({...formData, atraso_fala: v})} name="atraso_fala" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-200">
-                <div><label className="font-semibold text-xs block">Encaminhamentos</label><input type="text" className="border p-2 rounded w-full" value={formData.saude_auditiva_encaminhamentos} onChange={e => setFormData({...formData, saude_auditiva_encaminhamentos: e.target.value})} /></div>
-                <div><label className="font-semibold text-xs block">Resultados</label><input type="text" className="border p-2 rounded w-full" value={formData.saude_auditiva_resultados} onChange={e => setFormData({...formData, saude_auditiva_resultados: e.target.value})} /></div>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h3 className="text-xl font-bold border-b pb-2 text-[#0f254e] mb-4">Saúde Bucal</h3>
-            <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="font-semibold text-sm col-span-4">Mês/ano</div>
-                {[0,1,2,3].map(i => <input key={`mes${i}`} type="month" className="border p-2 rounded w-full text-xs" value={formData.saude_bucal.mes_ano[i]} onChange={e => updateSaudeBucal('mes_ano', i, e.target.value)} />)}
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="font-semibold text-sm col-span-4">Risco de cárie <span className="text-xs font-normal text-gray-500 ml-2">(A = baixo risco, B/C = médio, D/E/F = alto)</span></div>
-                {[0,1,2,3].map(i => <input key={`risco${i}`} type="text" maxLength={1} className="border p-2 rounded w-full text-center uppercase" placeholder="A-F" value={formData.saude_bucal.risco_carie[i]} onChange={e => updateSaudeBucal('risco_carie', i, e.target.value.toUpperCase())} />)}
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <div className="font-semibold text-sm col-span-4">Fluorterapia semanal seriada (se risco D, E, F) - Datas</div>
-                {[0,1,2,3].map(i => <input key={`fluor${i}`} type="date" className="border p-2 rounded w-full text-xs" value={formData.saude_bucal.fluorterapia[i]} onChange={e => updateSaudeBucal('fluorterapia', i, e.target.value)} />)}
               </div>
             </div>
           </section>
@@ -1145,158 +1045,6 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          <div className="flex mb-3">
-            <div className="w-6 mr-1 flex items-center justify-center font-bold text-xs relative">
-               <span className="-rotate-90 whitespace-nowrap absolute">Situação vacinal</span>
-            </div>
-            <div className="w-full">
-              <table className="w-full border-collapse border border-black text-[10px] text-center">
-                <thead>
-                  <tr className="font-bold">
-                    <td className="border border-black p-1 text-left w-1/4">Tipo de Vacina</td>
-                    <td className="border border-black p-1">1ª dose</td>
-                    <td className="border border-black p-1">2ª dose</td>
-                    <td className="border border-black p-1">3ª dose</td>
-                    <td className="border border-black p-1">1º reforço</td>
-                    <td className="border border-black p-1">2º reforço</td>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    {id: 'BCG', label: 'BCG', grayOut: ['ref1', 'ref2']},
-                    {id: 'Sabin', label: 'Sabin', grayOut: []},
-                    {id: 'DPT', label: 'DPT (Tríplice)', grayOut: ['ref2']},
-                    {id: 'Tetravalente', label: 'Tetravalente (DPT+Hib)', grayOut: []},
-                    {id: 'Hib', label: <span className="underline text-red-800">Hib</span>, grayOut: []},
-                    {id: 'Sarampo', label: 'Sarampo', grayOut: []},
-                    {id: 'TripliceViral', label: 'Tríplice viral', grayOut: []},
-                    {id: 'HepatiteB', label: 'Hepatite B', grayOut: []},
-                    {id: 'Outra', label: 'Outra (qual):', grayOut: []}
-                  ].map(vac => {
-                    const rowData = formData.situacao_vacinal[vac.id as keyof typeof formData.situacao_vacinal];
-                    return (
-                      <tr key={vac.id}>
-                        <td className="border border-black p-1 text-left font-bold">{vac.label}</td>
-                        <td className={`border border-black p-1 ${vac.grayOut.includes('d1') ? 'bg-gray-300' : ''}`}>{!vac.grayOut.includes('d1') && rowData?.d1 ? 'X' : ''}</td>
-                        <td className={`border border-black p-1 ${vac.grayOut.includes('d2') ? 'bg-gray-300' : ''}`}>{!vac.grayOut.includes('d2') && rowData?.d2 ? 'X' : ''}</td>
-                        <td className={`border border-black p-1 ${vac.grayOut.includes('d3') ? 'bg-gray-300' : ''}`}>{!vac.grayOut.includes('d3') && rowData?.d3 ? 'X' : ''}</td>
-                        <td className={`border border-black p-1 ${vac.grayOut.includes('ref1') ? 'bg-gray-300' : ''}`}>{!vac.grayOut.includes('ref1') && rowData?.ref1 ? 'X' : ''}</td>
-                        <td className={`border border-black p-1 ${vac.grayOut.includes('ref2') ? 'bg-gray-300' : ''}`}>{!vac.grayOut.includes('ref2') && rowData?.ref2 ? 'X' : ''}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <div className="text-center text-[9px] mt-0.5">(Assinalar com X as vacinas recebidas)</div>
-            </div>
-          </div>
-
-          <div className="flex mb-3">
-            <div className="w-6 mr-1 flex items-center justify-center font-bold text-[10px] leading-tight relative">
-               <span className="-rotate-90 whitespace-nowrap absolute leading-[10px]">Teste de<br/>Acuidade<br/>Visual</span>
-            </div>
-            <table className="w-full border-collapse border border-black text-[10px] text-center">
-              <tbody>
-                <tr className="font-bold">
-                  <td className="border border-black p-1 w-[15%]">Data</td>
-                  <td className="border border-black p-1 w-[15%]">Idade</td>
-                  <td className="border border-black p-1 w-[20%]">Resultado OD</td>
-                  <td className="border border-black p-1 w-[20%]">Resultado OE</td>
-                  <td className="border border-black p-1 w-[30%]">Consulta <span className="underline text-red-800">Oftalmo</span></td>
-                </tr>
-                <tr>
-                  <td className="border border-black p-1 h-5">{formData.acuidade_visual.data ? new Date(formData.acuidade_visual.data + 'T12:00:00').toLocaleDateString('pt-BR') : ''}</td>
-                  <td className="border border-black p-1">{formData.acuidade_visual.idade}</td>
-                  <td className="border border-black p-1">{formData.acuidade_visual.resultado_od}</td>
-                  <td className="border border-black p-1">{formData.acuidade_visual.resultado_oe}</td>
-                  <td className="border border-black p-1 text-left px-2">Data {formData.acuidade_visual.consulta_oftalmo_data_1 ? new Date(formData.acuidade_visual.consulta_oftalmo_data_1 + 'T12:00:00').toLocaleDateString('pt-BR') : '    /    /'}</td>
-                </tr>
-                <tr>
-                  <td className="border border-black p-1 h-5"></td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1 text-left px-2">Data {formData.acuidade_visual.consulta_oftalmo_data_2 ? new Date(formData.acuidade_visual.consulta_oftalmo_data_2 + 'T12:00:00').toLocaleDateString('pt-BR') : '    /    /'}</td>
-                </tr>
-                <tr>
-                  <td colSpan={5} className="border border-black p-1 text-left font-bold">
-                    Utiliza óculos ou lentes <span className="underline text-blue-800">corretivas ?</span> &nbsp;&nbsp;
-                    <PrintCheck checked={!formData.usa_oculos} label="Não"/> &nbsp;&nbsp;&nbsp;&nbsp;
-                    <PrintCheck checked={formData.usa_oculos} label="Sim"/> <span className="font-normal text-[9px] underline text-blue-800 ml-1">Neste caso, realizar o teste c/ o óculos</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex mb-4">
-            <div className="w-6 mr-1 flex items-center justify-center font-bold text-[10px] relative">
-               <span className="-rotate-90 whitespace-nowrap absolute">Saúde<br/>Auditiva</span>
-            </div>
-            <table className="w-full border-collapse border border-black text-[10px]">
-              <tbody>
-                <tr>
-                  <td className="border border-black p-1 border-r-0 w-[55%]"></td>
-                  <td className="border border-black p-1 font-bold text-center w-[25%]">Encaminhamentos</td>
-                  <td className="border border-black p-1 font-bold text-center w-[20%]">Resultados</td>
-                </tr>
-                <tr>
-                  <td className="border border-black p-1 font-bold">
-                    Ouve bem? &nbsp;&nbsp; <PrintCheck checked={!formData.ouve_bem} label="Não"/> &nbsp;&nbsp;&nbsp;&nbsp; <PrintCheck checked={formData.ouve_bem} label="Sim"/>
-                  </td>
-                  <td className="border border-black p-1 text-center" rowSpan={2}>{formData.saude_auditiva_encaminhamentos}</td>
-                  <td className="border border-black p-1 text-center" rowSpan={2}>{formData.saude_auditiva_resultados}</td>
-                </tr>
-                <tr>
-                  <td className="border border-black p-1 font-bold">
-                    Tem atraso ou alteração da fala? &nbsp;&nbsp; <PrintCheck checked={!formData.atraso_fala} label="Não"/> &nbsp;&nbsp;&nbsp;&nbsp; <PrintCheck checked={formData.atraso_fala} label="Sim"/>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex mb-4">
-            <div className="w-6 mr-1 flex items-center justify-center font-bold text-[10px] relative">
-               <span className="-rotate-90 whitespace-nowrap absolute">Saúde Bucal</span>
-            </div>
-            <div className="w-full flex flex-col justify-between">
-              <table className="w-full border-collapse border border-black text-[10px] text-center mb-1">
-                <tbody>
-                  <tr>
-                    <td className="border border-black p-1 text-left font-bold w-[20%]">Mês/ano</td>
-                    <td className="border border-black p-1 w-[20%]">{formData.saude_bucal.mes_ano[0] || '____/____'}</td>
-                    <td className="border border-black p-1 w-[20%]">{formData.saude_bucal.mes_ano[1] || '____/____'}</td>
-                    <td className="border border-black p-1 w-[20%]">{formData.saude_bucal.mes_ano[2] || '____/____'}</td>
-                    <td className="border border-black p-1 w-[20%]">{formData.saude_bucal.mes_ano[3] || '____/____'}</td>
-                  </tr>
-                  <tr>
-                    <td className="border border-black p-1 text-left font-bold">Risco de cárie</td>
-                    <td className="border border-black p-1">{formData.saude_bucal.risco_carie[0]}</td>
-                    <td className="border border-black p-1">{formData.saude_bucal.risco_carie[1]}</td>
-                    <td className="border border-black p-1">{formData.saude_bucal.risco_carie[2]}</td>
-                    <td className="border border-black p-1">{formData.saude_bucal.risco_carie[3]}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <div className="text-center text-[9px] mb-2">A = baixo risco&nbsp;&nbsp; B, C = médio risco&nbsp;&nbsp; D, E, F = alto risco</div>
-              
-              <table className="w-full border-collapse border border-black text-[10px]">
-                <tbody>
-                  <tr>
-                    <td colSpan={4} className="border border-black p-1 font-bold"><span className="underline text-red-800">Fluorterapia</span> semanal seriada, se risco D, E, F</td>
-                  </tr>
-                  <tr className="text-center h-8 align-top">
-                    <td className="border border-black p-0.5 text-left text-[8px]">Data<br/><div className="text-center text-[10px] mt-1">{formData.saude_bucal.fluorterapia[0] ? new Date(formData.saude_bucal.fluorterapia[0] + 'T12:00:00').toLocaleDateString('pt-BR') : '___/___/_____'}</div></td>
-                    <td className="border border-black p-0.5 text-left text-[8px]">Data<br/><div className="text-center text-[10px] mt-1">{formData.saude_bucal.fluorterapia[1] ? new Date(formData.saude_bucal.fluorterapia[1] + 'T12:00:00').toLocaleDateString('pt-BR') : '___/___/_____'}</div></td>
-                    <td className="border border-black p-0.5 text-left text-[8px]">Data<br/><div className="text-center text-[10px] mt-1">{formData.saude_bucal.fluorterapia[2] ? new Date(formData.saude_bucal.fluorterapia[2] + 'T12:00:00').toLocaleDateString('pt-BR') : '___/___/_____'}</div></td>
-                    <td className="border border-black p-0.5 text-left text-[8px]">Data<br/><div className="text-center text-[10px] mt-1">{formData.saude_bucal.fluorterapia[3] ? new Date(formData.saude_bucal.fluorterapia[3] + 'T12:00:00').toLocaleDateString('pt-BR') : '___/___/_____'}</div></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
           </div>
 
           <div className="flex mb-3">
