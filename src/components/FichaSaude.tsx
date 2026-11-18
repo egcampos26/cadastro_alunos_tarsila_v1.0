@@ -9,6 +9,7 @@ import { cn } from '../lib/utils';
 interface FichaSaudeProps {
   student: Student;
   onBack: () => void;
+  isEditMode?: boolean;
 }
 
 export interface ElementStyle {
@@ -85,7 +86,7 @@ const defaultPrintConfig: PrintConfig = {
   elementStyles: {},
 };
 
-export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
+export default function FichaSaude({ student, onBack, isEditMode = false }: FichaSaudeProps) {
   const [printConfig, setPrintConfig] = useState<PrintConfig>(() => {
     const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
     if (saved) {
@@ -101,6 +102,12 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
   });
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isEditMode && isPreviewMode) {
+      setIsPreviewMode(false);
+    }
+  }, [isEditMode, isPreviewMode]);
 
   const updateConfig = (key: keyof PrintConfig, val: any) => {
     setPrintConfig(prev => {
@@ -298,23 +305,51 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden no-scrollbar ficha-saude-view print:shadow-none print:border-none print:m-0 print:p-0">
       
-      {/* Botões Superiores - Escondidos na impressão */}
-      <div className="bg-[#3b5998] p-6 flex items-center justify-between print:hidden sticky top-0 z-20">
-        <button onClick={onBack} className="flex items-center gap-2 text-white/80 hover:text-white transition-colors">
-          <ArrowLeft className="w-5 h-5" /> Voltar
-        </button>
-        <h2 className="text-xl font-bold text-white uppercase">Ficha de Saúde B</h2>
-        <div className="flex gap-3">
-          <button onClick={() => setIsPreviewMode(!isPreviewMode)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-colors shadow-sm ${isPreviewMode ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-500' : 'bg-gray-200 text-[#0f254e] hover:bg-gray-300'}`}>
-            <Settings className="w-4 h-4" /> {isPreviewMode ? 'Voltar ao Formulário' : 'Visualizar Layout'}
+      {/* Botões Superiores - Cabeçalho responsivo e limpo */}
+      <div className="bg-[#3b5998] px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-3 print:hidden sticky top-0 z-20 shadow-md">
+        <div className="flex items-center gap-3 min-w-0">
+          <button 
+            type="button"
+            onClick={onBack} 
+            className="flex items-center gap-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg transition-all text-xs sm:text-sm font-semibold shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" /> <span>Voltar</span>
           </button>
-          <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-white text-[#3b5998] px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition-colors disabled:opacity-50">
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Salvar
-          </button>
-          <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg">
-            <Printer className="w-4 h-4" /> Imprimir Ficha
-          </button>
+          <h2 className="text-base sm:text-lg md:text-xl font-bold text-white uppercase tracking-wide truncate">
+            Ficha de Saúde B
+          </h2>
         </div>
+
+        {/* Botões visíveis SOMENTE no Modo Edição */}
+        {isEditMode ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <button 
+              type="button"
+              onClick={() => setIsPreviewMode(!isPreviewMode)} 
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer",
+                isPreviewMode 
+                  ? "bg-yellow-400 text-yellow-950 hover:bg-yellow-500" 
+                  : "bg-white text-[#0f254e] hover:bg-gray-100"
+              )}
+            >
+              <Settings className="w-4 h-4" />
+              <span>{isPreviewMode ? 'Voltar ao Formulário' : 'Visualizar Layout'}</span>
+            </button>
+            <button 
+              type="button"
+              onClick={handlePrint} 
+              className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all shadow-md cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Imprimir Ficha</span>
+            </button>
+          </div>
+        ) : (
+          <div className="hidden sm:flex items-center text-white/70 text-xs font-medium">
+            <span>EMEF Tarsila do Amaral</span>
+          </div>
+        )}
       </div>
 
       {saveSuccess && (
@@ -728,6 +763,44 @@ export default function FichaSaude({ student, onBack }: FichaSaudeProps) {
             </div>
           </div>
 
+        
+          {/* Alerta de salvamento no fim do formulário */}
+          {saveSuccess && (
+            <div className="bg-green-100 border border-green-300 text-green-800 p-4 rounded-xl text-center text-sm font-bold flex justify-center items-center gap-2 print:hidden shadow-sm">
+              <CheckCircle2 className="w-5 h-5 text-green-600" /> Dados salvos com sucesso no sistema!
+            </div>
+          )}
+
+          {/* Botão Salvar no fim da página */}
+          <div className="pt-6 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
+            <button
+              type="button"
+              onClick={onBack}
+              disabled={isSaving}
+              className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-gray-100 text-gray-700 font-bold rounded-xl border border-gray-300 transition-all flex items-center justify-center gap-2 shadow-sm text-sm sm:text-base order-2 sm:order-1 cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Voltar ao Início
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="w-full sm:w-auto px-8 py-3.5 bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all flex items-center justify-center gap-2 text-sm sm:text-base disabled:opacity-50 order-1 sm:order-2 cursor-pointer"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Salvando dados...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Salvar Ficha de Saúde
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

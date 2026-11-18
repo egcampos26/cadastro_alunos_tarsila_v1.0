@@ -3,7 +3,7 @@ import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
 import { Student } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText } from 'lucide-react';
+import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings } from 'lucide-react';
 import { cn } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
 
@@ -234,6 +234,17 @@ export default function App() {
   const [isFatherMain, setIsFatherMain] = useState(false);
   const [sameAddressAsStudent, setSameAddressAsStudent] = useState(true);
   const [currentView, setCurrentView] = useState<'main' | 'saude'>('main');
+  const [isEditMode, setIsEditMode] = useState<boolean>(() => {
+    return localStorage.getItem('@PortalTarsila:EditMode') === 'true';
+  });
+
+  const toggleEditMode = () => {
+    setIsEditMode(prev => {
+      const next = !prev;
+      localStorage.setItem('@PortalTarsila:EditMode', String(next));
+      return next;
+    });
+  };
 
   // Form state
   const [formData, setFormData] = useState(initialFormData);
@@ -997,22 +1008,43 @@ export default function App() {
     )}>
       {/* Header */}
       <header className={cn(
-        "bg-[#3b5998] border-b border-[#2d4373] px-4 sticky top-0 z-10 shadow-sm text-white text-center print:hidden shrink-0",
-        isFullScreenView ? "py-2 sm:py-3" : "py-6"
+        "bg-[#3b5998] border-b border-[#2d4373] px-4 sticky top-0 z-30 shadow-sm text-white print:hidden shrink-0",
+        isFullScreenView ? "py-2 sm:py-3" : "py-4 sm:py-5"
       )}>
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative flex items-center justify-center">
           <h1 className={cn(
-            "font-bold tracking-tight uppercase",
-            isFullScreenView ? "text-base sm:text-lg md:text-xl" : "text-2xl"
+            "font-bold tracking-tight uppercase text-center",
+            isFullScreenView ? "text-base sm:text-lg md:text-xl" : "text-xl sm:text-2xl"
           )}>
             EMEF Tarsila do Amaral
           </h1>
+
+          {/* Engrenagem no canto superior direito para alternar Modo Edição */}
+          <button
+            type="button"
+            onClick={toggleEditMode}
+            title={isEditMode ? "Modo Edição Ativado (Clique para desativar)" : "Ativar Modo Edição"}
+            aria-label="Alternar Modo Edição"
+            className={cn(
+              "absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer",
+              isEditMode
+                ? "bg-yellow-400 text-yellow-950 shadow-md ring-2 ring-yellow-200 hover:bg-yellow-500"
+                : "text-white/80 hover:text-white hover:bg-white/10"
+            )}
+          >
+            <Settings className="w-5 h-5" />
+            {isEditMode && (
+              <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">
+                Edição
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
       {currentView === 'saude' && foundStudent ? (
         <main className="max-w-4xl mx-auto py-8 px-4 ficha-saude-view no-scrollbar">
-          <FichaSaude student={foundStudent} onBack={() => setCurrentView('main')} />
+          <FichaSaude student={foundStudent} onBack={() => setCurrentView('main')} isEditMode={isEditMode} />
         </main>
       ) : (
         <main className={cn(
