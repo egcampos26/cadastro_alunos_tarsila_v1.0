@@ -936,12 +936,26 @@ export default function App() {
     </motion.div>
   );
 
+    const isInitialSearch = !foundStudent && !isSuccess && currentView !== 'saude';
+  const isFullScreenView = isInitialSearch || isSuccess;
+
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100 print:bg-white">
+    <div className={cn(
+      "bg-[#F8F9FA] text-[#212529] font-sans selection:bg-blue-100 print:bg-white",
+      isFullScreenView ? "h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between" : "min-h-screen"
+    )}>
       {/* Header */}
-      <header className="bg-[#3b5998] border-b border-[#2d4373] py-6 px-4 sticky top-0 z-10 shadow-sm text-white text-center print:hidden">
+      <header className={cn(
+        "bg-[#3b5998] border-b border-[#2d4373] px-4 sticky top-0 z-10 shadow-sm text-white text-center print:hidden shrink-0",
+        isFullScreenView ? "py-2 sm:py-3" : "py-6"
+      )}>
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight uppercase">EMEF Tarsila do Amaral</h1>
+          <h1 className={cn(
+            "font-bold tracking-tight uppercase",
+            isFullScreenView ? "text-base sm:text-lg md:text-xl" : "text-2xl"
+          )}>
+            EMEF Tarsila do Amaral
+          </h1>
         </div>
       </header>
 
@@ -950,100 +964,109 @@ export default function App() {
           <FichaSaude student={foundStudent} onBack={() => setCurrentView('main')} />
         </main>
       ) : (
-        <main className="max-w-4xl mx-auto py-8 px-4 print:hidden">
+        <main className={cn(
+          "print:hidden w-full",
+          isFullScreenView 
+            ? "flex-1 min-h-0 flex items-center justify-center p-2 sm:p-4 max-w-5xl mx-auto overflow-hidden" 
+            : "max-w-4xl mx-auto py-8 px-4"
+        )}>
           <AnimatePresence mode="wait">
             {!foundStudent && !isSuccess && (
             <motion.div
               key="search-container"
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-4xl mx-auto"
             >
-              {/* Banner/Logo Image */}
-              <div className="mb-8 flex justify-center">
-                <img 
-                  src={logoEmef} 
-                  alt="EMEF Tarsila do Amaral Logo" 
-                  className="max-w-xs md:max-w-md h-auto rounded-3xl shadow-2xl border-8 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
-                  onError={(e) => {
-                    console.error("Erro ao carregar a logo:", e);
-                  }}
-                />
-              </div>
-
-              <div className="bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl md:text-4xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
-                  <p className="text-gray-600 mt-3 text-base md:text-lg">
-                    Informe o <strong>nome completo</strong> e a <strong>data de nascimento</strong> do aluno para acessar o cadastro
-                  </p>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 md:gap-8 items-center w-full">
+                {/* Banner/Logo Image */}
+                <div className="md:col-span-5 flex flex-col items-center justify-center text-center">
+                  <img 
+                    src={logoEmef} 
+                    alt="EMEF Tarsila do Amaral Logo" 
+                    className="max-h-24 sm:max-h-36 md:max-h-56 lg:max-h-64 w-auto object-contain rounded-2xl shadow-xl border-4 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
+                    onError={(e) => {
+                      console.error("Erro ao carregar a logo:", e);
+                    }}
+                  />
                 </div>
 
-                <form onSubmit={handleSearch} className="space-y-5">
-                  <div className="space-y-1.5 text-left">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Nome completo do aluno
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Ex: Anthony de Jesus Feitoza"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-lg"
-                        required
-                      />
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    </div>
+                {/* Form Card */}
+                <div className="md:col-span-7 bg-white rounded-2xl p-4 sm:p-6 md:p-7 shadow-xl border border-gray-100 flex flex-col justify-center">
+                  <div className="text-center md:text-left mb-3 sm:mb-4">
+                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
+                    <p className="text-gray-600 mt-1 text-xs sm:text-sm">
+                      Informe o <strong>nome completo</strong> e a <strong>data de nascimento</strong> do aluno para acessar o cadastro
+                    </p>
                   </div>
 
-                  <div className="space-y-1.5 text-left">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Data de nascimento do aluno
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={searchBirthDate}
-                        onChange={(e) => setSearchBirthDate(e.target.value)}
-                        max={new Date().toISOString().split('T')[0]}
-                        min="1990-01-01"
-                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-lg text-gray-800"
-                        required
-                      />
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <form onSubmit={handleSearch} className="space-y-2.5 sm:space-y-3.5">
+                    <div className="space-y-1 text-left">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+                        Nome completo do aluno
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          placeholder="Ex: Anthony de Jesus Feitoza"
+                          className="w-full pl-10 sm:pl-11 pr-3 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base"
+                          required
+                        />
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
                     </div>
-                  </div>
-                  
-                  <button
-                    type="submit"
-                    disabled={isSearching}
-                    className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
-                  >
-                    {isSearching ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Verificando cadastro...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-5 h-5" />
-                        Acessar Cadastro do Aluno
-                      </>
-                    )}
-                  </button>
-                </form>
 
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-left"
-                  >
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <p className="text-sm font-medium">{error}</p>
-                  </motion.div>
-                )}
+                    <div className="space-y-1 text-left">
+                      <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+                        Data de nascimento do aluno
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={searchBirthDate}
+                          onChange={(e) => setSearchBirthDate(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          min="1990-01-01"
+                          className="w-full pl-10 sm:pl-11 pr-3 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800"
+                          required
+                        />
+                        <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={isSearching}
+                      className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-2.5 sm:py-3 md:py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-sm sm:text-base mt-1 sm:mt-2"
+                    >
+                      {isSearching ? (
+                        <>
+                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                          <span>Verificando cadastro...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>Acessar Cadastro do Aluno</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2.5 text-red-600 text-left text-xs sm:text-sm"
+                    >
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <p className="font-medium">{error}</p>
+                    </motion.div>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
@@ -1877,18 +1900,18 @@ export default function App() {
               key="success"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-2xl p-12 shadow-xl border border-gray-100 text-center"
+              className="bg-white rounded-2xl p-6 sm:p-10 shadow-xl border border-gray-100 text-center max-w-md mx-auto"
             >
-              <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="text-green-500 w-12 h-12" />
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <CheckCircle2 className="text-green-500 w-10 h-10 sm:w-12 sm:h-12" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900">Cadastro Concluído!</h2>
-              <p className="text-gray-500 mt-4 text-lg max-w-md mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Cadastro Concluído!</h2>
+              <p className="text-gray-500 mt-3 text-sm sm:text-base max-w-sm mx-auto">
                 As informações foram enviadas com sucesso para a secretaria da escola.
               </p>
               <button
                 onClick={() => setIsSuccess(false)}
-                className="mt-8 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all"
+                className="mt-6 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all text-sm sm:text-base"
               >
                 Voltar ao Início
               </button>
@@ -1899,7 +1922,10 @@ export default function App() {
       )}
 
       {/* Footer */}
-      <footer className="max-w-4xl mx-auto py-12 px-4 text-center text-gray-400 text-sm print:hidden">
+      <footer className={cn(
+        "text-center text-gray-400 print:hidden shrink-0",
+        isFullScreenView ? "py-2 sm:py-2.5 px-4 text-xs" : "max-w-4xl mx-auto py-12 px-4 text-sm"
+      )}>
         <p>&copy; 2026 Portal de Cadastro Escolar. Todos os direitos reservados.</p>
       </footer>
     </div>
