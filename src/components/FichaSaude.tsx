@@ -199,7 +199,7 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
     try {
       setIsLoading(true);
       const { data, error } = await supabase
-        .from('FICHA_SAUDE_B')
+        .from('ALUNOS_FICHA_SAUDE_B')
         .select('*')
         .eq('id_aluno', student.id)
         .single();
@@ -214,9 +214,6 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
           ...data,
           q7_tipo: data.q7_tipo || [],
           q13_tipo: data.q13_tipo || [],
-          situacao_vacinal: data.situacao_vacinal || initialFichaSaudeData.situacao_vacinal,
-          acuidade_visual: data.acuidade_visual || initialFichaSaudeData.acuidade_visual,
-          saude_bucal: data.saude_bucal || initialFichaSaudeData.saude_bucal,
           programa_social: data.programa_social || [],
         });
       }
@@ -232,11 +229,22 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
       setIsSaving(true);
       setSaveSuccess(false);
 
+      const { id_ficha, ...validData } = formData as any;
+      // Garante que campos descontinuados não sejam enviados
+      delete validData.situacao_vacinal;
+      delete validData.acuidade_visual;
+      delete validData.usa_oculos;
+      delete validData.ouve_bem;
+      delete validData.atraso_fala;
+      delete validData.saude_auditiva_encaminhamentos;
+      delete validData.saude_auditiva_resultados;
+      delete validData.saude_bucal;
+
       const { data, error } = await supabase
-        .from('FICHA_SAUDE_B')
+        .from('ALUNOS_FICHA_SAUDE_B')
         .upsert({
-          id_aluno: student.id,
-          ...formData,
+          id_aluno: Number(student.id),
+          ...validData,
           updated_at: new Date().toISOString()
         }, { onConflict: 'id_aluno' })
         .select();

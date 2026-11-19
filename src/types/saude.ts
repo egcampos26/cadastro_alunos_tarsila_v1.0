@@ -51,39 +51,6 @@ export interface FichaSaudeData {
   diag_outra_doenca: boolean;
   diag_especificar: string;
 
-  // Situação Vacinal
-  situacao_vacinal: Record<string, {
-    d1: boolean;
-    d2: boolean;
-    d3: boolean;
-    ref1: boolean;
-    ref2: boolean;
-  }>;
-
-  // Teste de Acuidade Visual
-  acuidade_visual: {
-    data: string;
-    idade: string;
-    resultado_od: string;
-    resultado_oe: string;
-    consulta_oftalmo_data_1: string;
-    consulta_oftalmo_data_2: string;
-  };
-  usa_oculos: boolean;
-
-  // Saúde Auditiva
-  ouve_bem: boolean;
-  atraso_fala: boolean;
-  saude_auditiva_encaminhamentos: string;
-  saude_auditiva_resultados: string;
-
-  // Saúde Bucal
-  saude_bucal: {
-    mes_ano: string[];
-    risco_carie: string[];
-    fluorterapia: string[];
-  };
-
   // Programas Sociais
   programa_social: string[]; // Bolsa Alimentação, Bolsa-Escola, Começar de Novo, Renda-Mínima, Nenhum, Outro
 
@@ -138,39 +105,6 @@ export const initialFichaSaudeData: FichaSaudeData = {
   diag_obesidade: false,
   diag_outra_doenca: false,
   diag_especificar: '',
-
-  situacao_vacinal: {
-    BCG: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    Sabin: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    DPT: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    Tetravalente: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    Hib: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    Sarampo: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    TripliceViral: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    HepatiteB: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-    Outra: { d1: false, d2: false, d3: false, ref1: false, ref2: false },
-  },
-
-  acuidade_visual: {
-    data: '',
-    idade: '',
-    resultado_od: '',
-    resultado_oe: '',
-    consulta_oftalmo_data_1: '',
-    consulta_oftalmo_data_2: '',
-  },
-  usa_oculos: false,
-
-  ouve_bem: true,
-  atraso_fala: false,
-  saude_auditiva_encaminhamentos: '',
-  saude_auditiva_resultados: '',
-
-  saude_bucal: {
-    mes_ano: ['', '', '', ''],
-    risco_carie: ['', '', '', ''],
-    fluorterapia: ['', '', '', ''],
-  },
 
   programa_social: [],
   responsavel_preenchimento: '',
