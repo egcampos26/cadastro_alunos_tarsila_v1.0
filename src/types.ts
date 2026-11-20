@@ -1,3 +1,12 @@
+export interface SiblingInfo {
+  id: string;
+  name: string;
+  grade?: string;
+  class?: string;
+  period?: string;
+  birthDate?: string;
+}
+
 export interface Student {
   id: string; // This will map to id_aluno
   name: string;
@@ -34,4 +43,6 @@ export interface Student {
   healthInfo?: string;
   status?: 'pending' | 'completed';
   lastUpdated?: string;
+  id_familia?: string | null;
+  siblings?: SiblingInfo[];
 }

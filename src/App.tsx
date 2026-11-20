@@ -1,9 +1,9 @@
 import React, { useState, useEffect, FormEvent, Component, ErrorInfo, ReactNode } from 'react';
 import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
-import { Student } from './types';
+import { Student, SiblingInfo } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings } from 'lucide-react';
 import { cn } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
 
@@ -233,6 +233,10 @@ export default function App() {
   const [isMotherMain, setIsMotherMain] = useState(false);
   const [isFatherMain, setIsFatherMain] = useState(false);
   const [sameAddressAsStudent, setSameAddressAsStudent] = useState(true);
+  const [motherSameWhatsapp, setMotherSameWhatsapp] = useState(true);
+  const [fatherSameWhatsapp, setFatherSameWhatsapp] = useState(true);
+  const [guardianSameWhatsapp, setGuardianSameWhatsapp] = useState(true);
+  const [siblings, setSiblings] = useState<SiblingInfo[]>([]);
   const [currentView, setCurrentView] = useState<'main' | 'saude'>('main');
   const [isEditMode, setIsEditMode] = useState<boolean>(() => {
     return localStorage.getItem('@PortalTarsila:EditMode') === 'true';
@@ -259,6 +263,10 @@ export default function App() {
     setIsMotherMain(false);
     setIsFatherMain(false);
     setSameAddressAsStudent(true);
+    setMotherSameWhatsapp(true);
+    setFatherSameWhatsapp(true);
+    setGuardianSameWhatsapp(true);
+    setSiblings([]);
   };
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -458,6 +466,11 @@ export default function App() {
       const respNome = (respRecord.nome_responsavel_aluno || '').trim();
       const respCpf = (respRecord.cpf_responsavel_aluno || '').trim();
 
+      // Retrieve stored WhatsApp values from database if present
+      const motherWhatsappDb = (respRecord.whatsapp_mae || contatos.whatsapp_mae || dadosCompletos.whatsapp_mae || '').trim();
+      const fatherWhatsappDb = (respRecord.whatsapp_pai || contatos.whatsapp_pai || dadosCompletos.whatsapp_pai || '').trim();
+      const guardianWhatsappDb = (respRecord.whatsapp_responsavel || contatos.whatsapp_responsavel || dadosCompletos.whatsapp_responsavel || '').trim();
+
       // Check ALUNOS_RESPONSAVEL to determine if mother, father, or someone else was the registered guardian
       let initialMotherMain = false;
       let initialFatherMain = false;
@@ -495,7 +508,7 @@ export default function App() {
         initialGuardianName = respNome;
         initialGuardianCpf = respCpf;
         initialGuardianPhone = respPhone || motherPhone || fatherPhone || '';
-        initialGuardianWhatsapp = respPhone || motherPhone || fatherPhone || '';
+        initialGuardianWhatsapp = guardianWhatsappDb || respPhone || motherPhone || fatherPhone || '';
         initialGuardianEmail = contatos.email_responsavel || '';
       } else {
         // Fallback: Default to mother if exists, else father
@@ -515,6 +528,62 @@ export default function App() {
       const activeGuardianCpf = initialMotherMain ? motherCpf : (initialFatherMain ? fatherCpf : initialGuardianCpf);
       const activeGuardianPhone = initialMotherMain ? (motherPhone || respPhone) : (initialFatherMain ? (fatherPhone || respPhone) : initialGuardianPhone);
       const activeGuardianEmail = initialMotherMain ? (contatos.email_responsavel || '') : (initialFatherMain ? (contatos.email_responsavel || '') : initialGuardianEmail);
+
+      // Initialize WhatsApp and "Mesmo do celular" flags
+      const finalMotherWhatsapp = motherWhatsappDb || motherPhone || '';
+      const finalMotherSame = !motherWhatsappDb || (motherPhone && motherWhatsappDb === motherPhone);
+
+      const finalFatherWhatsapp = fatherWhatsappDb || fatherPhone || '';
+      const finalFatherSame = !fatherWhatsappDb || (fatherPhone && fatherWhatsappDb === fatherPhone);
+
+      const finalGuardianPhoneVal = initialGuardianPhone || '';
+      const finalGuardianWhatsappVal = guardianWhatsappDb || finalGuardianPhoneVal;
+      const finalGuardianSame = !guardianWhatsappDb || (finalGuardianPhoneVal && guardianWhatsappDb === finalGuardianPhoneVal);
+
+      setMotherSameWhatsapp(Boolean(finalMotherSame));
+      setFatherSameWhatsapp(Boolean(finalFatherSame));
+      setGuardianSameWhatsapp(Boolean(finalGuardianSame));
+
+      // Fetch siblings if student has id_familia
+      let loadedSiblings: SiblingInfo[] = [];
+      if (matched.id_familia) {
+        try {
+          const { data: sibs } = await supabase
+            .from('ALUNOS')
+            .select(`
+              id_aluno,
+              nome_aluno,
+              data_nasc_aluno,
+              ALUNOS_MATRICULAS (
+                ano_letivo_aluno,
+                serie_aluno,
+                turma_aluno,
+                periodo_aluno,
+                situacao_matricula
+              )
+            `)
+            .eq('id_familia', matched.id_familia)
+            .neq('id_aluno', matched.id_aluno);
+
+          if (sibs && sibs.length > 0) {
+            loadedSiblings = sibs.map((s: any) => {
+              const matriculasList = Array.isArray(s.ALUNOS_MATRICULAS) ? s.ALUNOS_MATRICULAS : (s.ALUNOS_MATRICULAS ? [s.ALUNOS_MATRICULAS] : []);
+              const mat = matriculasList.find((m: any) => m.ano_letivo_aluno === 2026 || m.ano_letivo === 2026) || matriculasList[0] || {};
+              return {
+                id: String(s.id_aluno),
+                name: s.nome_aluno,
+                class: mat.turma_aluno || '',
+                grade: mat.serie_aluno || '',
+                period: mat.periodo_aluno || '',
+                birthDate: s.data_nasc_aluno || ''
+              };
+            });
+          }
+        } catch (sibErr) {
+          console.warn('Erro ao buscar irmãos:', sibErr);
+        }
+      }
+      setSiblings(loadedSiblings);
 
       const addressCep = enderecos.cep_aluno || respRecord.cep_responsavel_aluno || '';
       const addressStreet = enderecos.logradouro_aluno || [respRecord.logradouro_responsavel_aluno, respRecord.endereco_responsavel_aluno].filter(Boolean).join(' ') || '';
@@ -560,12 +629,12 @@ export default function App() {
         motherName: motherName,
         motherCpf: motherCpf,
         motherPhone: motherPhone,
-        motherWhatsapp: motherPhone,
+        motherWhatsapp: finalMotherWhatsapp,
         motherEmail: initialMotherMain ? (contatos.email_responsavel || '') : '',
         fatherName: fatherName,
         fatherCpf: fatherCpf,
         fatherPhone: fatherPhone,
-        fatherWhatsapp: fatherPhone,
+        fatherWhatsapp: finalFatherWhatsapp,
         fatherEmail: initialFatherMain ? (contatos.email_responsavel || '') : '',
         cep: addressCep,
         street: addressStreet,
@@ -574,7 +643,9 @@ export default function App() {
         neighborhood: addressNeighborhood,
         city: addressCity,
         state: addressState,
-        healthInfo: ''
+        healthInfo: '',
+        id_familia: matched.id_familia || null,
+        siblings: loadedSiblings
       };
 
       setFoundStudent(mappedStudent);
@@ -609,18 +680,18 @@ export default function App() {
         cnsSus: documentos.cns_sus_aluno || '',
         guardianName: initialGuardianName,
         guardianCpf: initialGuardianCpf,
-        guardianPhone: initialGuardianPhone,
-        guardianWhatsapp: initialGuardianWhatsapp,
+        guardianPhone: finalGuardianPhoneVal,
+        guardianWhatsapp: finalGuardianWhatsappVal,
         guardianEmail: initialGuardianEmail,
         motherName: motherName,
         motherCpf: motherCpf,
         motherPhone: motherPhone,
-        motherWhatsapp: motherPhone,
+        motherWhatsapp: finalMotherWhatsapp,
         motherEmail: initialMotherMain ? (contatos.email_responsavel || '') : '',
         fatherName: fatherName,
         fatherCpf: fatherCpf,
         fatherPhone: fatherPhone,
-        fatherWhatsapp: fatherPhone,
+        fatherWhatsapp: finalFatherWhatsapp,
         fatherEmail: initialFatherMain ? (contatos.email_responsavel || '') : '',
         cep: addressCep,
         street: addressStreet,
@@ -828,6 +899,10 @@ export default function App() {
         const finalRespCity = sameAddressAsStudent ? formData.city : (formData.respCity || formData.city);
         const finalRespState = sameAddressAsStudent ? formData.state : (formData.respState || formData.state);
 
+        const effectiveMotherWhatsapp = (motherSameWhatsapp ? formData.motherPhone : formData.motherWhatsapp) || null;
+        const effectiveFatherWhatsapp = (fatherSameWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp) || null;
+        const effectiveGuardianWhatsapp = (guardianSameWhatsapp ? finalGuardianPhone : finalGuardianWhatsapp) || null;
+
         const { error: respErr } = await supabase
           .from('ALUNOS_RESPONSAVEL')
           .upsert({
@@ -836,6 +911,12 @@ export default function App() {
             responsavel_aluno: respTipo,
             nome_responsavel_aluno: finalGuardianName,
             cpf_responsavel_aluno: finalGuardianCpf || null,
+            celular_mae: formData.motherPhone || null,
+            whatsapp_mae: effectiveMotherWhatsapp,
+            celular_pai: formData.fatherPhone || null,
+            whatsapp_pai: effectiveFatherWhatsapp,
+            celular_responsavel: finalGuardianPhone || null,
+            whatsapp_responsavel: effectiveGuardianWhatsapp,
             mesmo_end_responsavel_aluno: respMesmoEnd,
             cep_responsavel_aluno: finalRespCep,
             logradouro_responsavel_aluno: finalRespStreet?.split(' ')[0] || 'Rua',
@@ -859,6 +940,10 @@ export default function App() {
 
       const dadosCompletos = parseJson(existingContatos?.dados_completos);
 
+      const effectiveMotherWhatsapp = (motherSameWhatsapp ? formData.motherPhone : formData.motherWhatsapp) || null;
+      const effectiveFatherWhatsapp = (fatherSameWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp) || null;
+      const effectiveGuardianWhatsapp = (guardianSameWhatsapp ? finalGuardianPhone : finalGuardianWhatsapp) || null;
+
       if (formData.motherPhone) {
         dadosCompletos.tel_filiacao1_pessoal_numero = formData.motherPhone;
         dadosCompletos.tel_filiacao1_pessoal_tipo = 'Celular';
@@ -872,6 +957,10 @@ export default function App() {
         dadosCompletos.tel_responsavel_pessoal_tipo = 'Celular';
       }
 
+      dadosCompletos.whatsapp_mae = effectiveMotherWhatsapp;
+      dadosCompletos.whatsapp_pai = effectiveFatherWhatsapp;
+      dadosCompletos.whatsapp_responsavel = effectiveGuardianWhatsapp;
+
       const emailResponsavel = finalGuardianEmail || formData.motherEmail || formData.fatherEmail || null;
 
       const { error: contatosErr } = await supabase
@@ -879,6 +968,9 @@ export default function App() {
         .upsert({
           id_aluno: studentId,
           email_responsavel: emailResponsavel,
+          whatsapp_mae: effectiveMotherWhatsapp,
+          whatsapp_pai: effectiveFatherWhatsapp,
+          whatsapp_responsavel: effectiveGuardianWhatsapp,
           dados_completos: JSON.stringify(dadosCompletos)
         }, { onConflict: 'id_aluno' });
 
@@ -1199,6 +1291,45 @@ export default function App() {
               </div>
 
               <form onSubmit={handleSubmit} className="p-8 space-y-8">
+                {/* Banner de Irmãos / Vínculo Familiar */}
+                {siblings && siblings.length > 0 && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-[#3b5998] text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-[#0f254e] text-base">
+                            Irmãos Matriculados na Escola ({siblings.length})
+                          </h4>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-[#3b5998]">
+                            Grupo Familiar Vinculado
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1">
+                          Identificamos que este(a) aluno(a) possui irmão(s) com cadastro vinculado na escola:
+                        </p>
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                          {siblings.map((sib) => (
+                            <div key={sib.id} className="bg-white/95 border border-blue-100 rounded-xl p-3 shadow-xs flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#3b5998] flex items-center justify-center font-bold text-xs shrink-0">
+                                {sib.name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 truncate" title={sib.name}>{sib.name}</p>
+                                <p className="text-[11px] text-slate-500 truncate">
+                                  {sib.grade ? `${sib.grade.replace('°', 'º')} ${sib.class || ''}` : 'Turma ativa'} {sib.period ? `• ${sib.period}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Aluno Info */}
                 <section>
                   <h3 className="text-lg font-bold flex items-center gap-2 mb-4 text-[#0f254e]">
@@ -1667,12 +1798,19 @@ export default function App() {
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">Telefone de Contato</label>
+                          <label className="text-sm font-semibold text-gray-600">Telefone Celular</label>
                           <div className="relative">
                             <input
                               type="tel"
                               value={formData.motherPhone}
-                              onChange={(e) => setFormData({ ...formData, motherPhone: e.target.value })}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData(prev => ({
+                                  ...prev,
+                                  motherPhone: val,
+                                  motherWhatsapp: motherSameWhatsapp ? val : prev.motherWhatsapp
+                                }));
+                              }}
                               placeholder="(00) 00000-0000"
                               className={getFieldClass(formData.motherPhone, "pl-10 pr-4")}
                             />
@@ -1680,14 +1818,35 @@ export default function App() {
                           </div>
                         </div>
                         <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">WhatsApp</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-600">WhatsApp</label>
+                            <label className="inline-flex items-center gap-1.5 text-xs text-[#3b5998] font-semibold cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={motherSameWhatsapp}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setMotherSameWhatsapp(checked);
+                                  if (checked) {
+                                    setFormData(prev => ({ ...prev, motherWhatsapp: prev.motherPhone }));
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-3.5 h-3.5 cursor-pointer"
+                              />
+                              <span>Mesmo do celular</span>
+                            </label>
+                          </div>
                           <div className="relative">
                             <input
                               type="tel"
-                              value={formData.motherWhatsapp}
+                              disabled={motherSameWhatsapp}
+                              value={motherSameWhatsapp ? formData.motherPhone : formData.motherWhatsapp}
                               onChange={(e) => setFormData({ ...formData, motherWhatsapp: e.target.value })}
                               placeholder="(00) 00000-0000"
-                              className={getFieldClass(formData.motherWhatsapp, "pl-10 pr-4")}
+                              className={getFieldClass(
+                                motherSameWhatsapp ? formData.motherPhone : formData.motherWhatsapp,
+                                cn("pl-10 pr-4", motherSameWhatsapp && "bg-gray-100/80 text-gray-600 cursor-not-allowed")
+                              )}
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1776,12 +1935,19 @@ export default function App() {
                           />
                         </div>
                         <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">Telefone de Contato</label>
+                          <label className="text-sm font-semibold text-gray-600">Telefone Celular</label>
                           <div className="relative">
                             <input
                               type="tel"
                               value={formData.fatherPhone}
-                              onChange={(e) => setFormData({ ...formData, fatherPhone: e.target.value })}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData(prev => ({
+                                  ...prev,
+                                  fatherPhone: val,
+                                  fatherWhatsapp: fatherSameWhatsapp ? val : prev.fatherWhatsapp
+                                }));
+                              }}
                               placeholder="(00) 00000-0000"
                               className={getFieldClass(formData.fatherPhone, "pl-10 pr-4")}
                             />
@@ -1789,14 +1955,35 @@ export default function App() {
                           </div>
                         </div>
                         <div className="space-y-2 md:col-span-4">
-                          <label className="text-sm font-semibold text-gray-600">WhatsApp</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-semibold text-gray-600">WhatsApp</label>
+                            <label className="inline-flex items-center gap-1.5 text-xs text-[#3b5998] font-semibold cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={fatherSameWhatsapp}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setFatherSameWhatsapp(checked);
+                                  if (checked) {
+                                    setFormData(prev => ({ ...prev, fatherWhatsapp: prev.fatherPhone }));
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-3.5 h-3.5 cursor-pointer"
+                              />
+                              <span>Mesmo do celular</span>
+                            </label>
+                          </div>
                           <div className="relative">
                             <input
                               type="tel"
-                              value={formData.fatherWhatsapp}
+                              disabled={fatherSameWhatsapp}
+                              value={fatherSameWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp}
                               onChange={(e) => setFormData({ ...formData, fatherWhatsapp: e.target.value })}
                               placeholder="(00) 00000-0000"
-                              className={getFieldClass(formData.fatherWhatsapp, "pl-10 pr-4")}
+                              className={getFieldClass(
+                                fatherSameWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp,
+                                cn("pl-10 pr-4", fatherSameWhatsapp && "bg-gray-100/80 text-gray-600 cursor-not-allowed")
+                              )}
                             />
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                           </div>
@@ -1879,13 +2066,20 @@ export default function App() {
                               />
                             </div>
                             <div className="space-y-2 md:col-span-4">
-                              <label className="text-sm font-semibold text-gray-700">Telefone de Contato</label>
+                              <label className="text-sm font-semibold text-gray-700">Telefone Celular</label>
                               <div className="relative">
                                 <input
                                   type="tel"
                                   required={!isMotherMain && !isFatherMain}
                                   value={formData.guardianPhone}
-                                  onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      guardianPhone: val,
+                                      guardianWhatsapp: guardianSameWhatsapp ? val : prev.guardianWhatsapp
+                                    }));
+                                  }}
                                   placeholder="(00) 00000-0000"
                                   className={getFieldClass(formData.guardianPhone, "pl-10 pr-4")}
                                 />
@@ -1893,15 +2087,36 @@ export default function App() {
                               </div>
                             </div>
                             <div className="space-y-2 md:col-span-4">
-                              <label className="text-sm font-semibold text-gray-700">WhatsApp</label>
+                              <div className="flex items-center justify-between">
+                                <label className="text-sm font-semibold text-gray-700">WhatsApp</label>
+                                <label className="inline-flex items-center gap-1.5 text-xs text-[#3b5998] font-semibold cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={guardianSameWhatsapp}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setGuardianSameWhatsapp(checked);
+                                      if (checked) {
+                                        setFormData(prev => ({ ...prev, guardianWhatsapp: prev.guardianPhone }));
+                                      }
+                                    }}
+                                    className="rounded border-gray-300 text-[#3b5998] focus:ring-[#3b5998] w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <span>Mesmo do celular</span>
+                                </label>
+                              </div>
                               <div className="relative">
                                 <input
                                   type="tel"
-                                  required={!isMotherMain && !isFatherMain}
-                                  value={formData.guardianWhatsapp}
+                                  disabled={guardianSameWhatsapp}
+                                  required={!isMotherMain && !isFatherMain && !guardianSameWhatsapp}
+                                  value={guardianSameWhatsapp ? formData.guardianPhone : formData.guardianWhatsapp}
                                   onChange={(e) => setFormData({ ...formData, guardianWhatsapp: e.target.value })}
                                   placeholder="(00) 00000-0000"
-                                  className={getFieldClass(formData.guardianWhatsapp, "pl-10 pr-4")}
+                                  className={getFieldClass(
+                                    guardianSameWhatsapp ? formData.guardianPhone : formData.guardianWhatsapp,
+                                    cn("pl-10 pr-4", guardianSameWhatsapp && "bg-gray-100/80 text-gray-600 cursor-not-allowed")
+                                  )}
                                 />
                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                               </div>
