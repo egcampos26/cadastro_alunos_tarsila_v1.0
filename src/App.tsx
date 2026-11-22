@@ -3,7 +3,7 @@ import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
 import { Student, SiblingInfo } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown } from 'lucide-react';
 import { cn } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
 
@@ -221,10 +221,60 @@ const getFieldClass = (
   );
 };
 
+interface TurmaOption {
+  key: string;
+  label: string;
+  serie: string;
+  turma: string;
+}
+
+const DEFAULT_TURMAS: TurmaOption[] = [
+  { key: '1º_A', label: '1º Ano A', serie: '1º', turma: 'A' },
+  { key: '1º_B', label: '1º Ano B', serie: '1º', turma: 'B' },
+  { key: '1º_C', label: '1º Ano C', serie: '1º', turma: 'C' },
+  { key: '2º_A', label: '2º Ano A', serie: '2º', turma: 'A' },
+  { key: '2º_B', label: '2º Ano B', serie: '2º', turma: 'B' },
+  { key: '2º_C', label: '2º Ano C', serie: '2º', turma: 'C' },
+  { key: '3º_A', label: '3º Ano A', serie: '3º', turma: 'A' },
+  { key: '3º_B', label: '3º Ano B', serie: '3º', turma: 'B' },
+  { key: '3º_C', label: '3º Ano C', serie: '3º', turma: 'C' },
+  { key: '4º_A', label: '4º Ano A', serie: '4º', turma: 'A' },
+  { key: '4º_B', label: '4º Ano B', serie: '4º', turma: 'B' },
+  { key: '4º_C', label: '4º Ano C', serie: '4º', turma: 'C' },
+  { key: '5º_A', label: '5º Ano A', serie: '5º', turma: 'A' },
+  { key: '5º_B', label: '5º Ano B', serie: '5º', turma: 'B' },
+  { key: '5º_C', label: '5º Ano C', serie: '5º', turma: 'C' },
+  { key: '6º_A', label: '6º Ano A', serie: '6º', turma: 'A' },
+  { key: '6º_B', label: '6º Ano B', serie: '6º', turma: 'B' },
+  { key: '6º_C', label: '6º Ano C', serie: '6º', turma: 'C' },
+  { key: '7º_A', label: '7º Ano A', serie: '7º', turma: 'A' },
+  { key: '7º_B', label: '7º Ano B', serie: '7º', turma: 'B' },
+  { key: '7º_C', label: '7º Ano C', serie: '7º', turma: 'C' },
+  { key: '8º_A', label: '8º Ano A', serie: '8º', turma: 'A' },
+  { key: '8º_B', label: '8º Ano B', serie: '8º', turma: 'B' },
+  { key: '8º_C', label: '8º Ano C', serie: '8º', turma: 'C' },
+  { key: '9º_A', label: '9º Ano A', serie: '9º', turma: 'A' },
+  { key: '9º_B', label: '9º Ano B', serie: '9º', turma: 'B' },
+  { key: '9º_C', label: '9º Ano C', serie: '9º', turma: 'C' },
+];
 
 export default function App() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchBirthDate, setSearchBirthDate] = useState('');
+  // Autenticação
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('@PortalTarsila:Auth') === 'true';
+  });
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Turmas e Alunos
+  const [turmasList, setTurmasList] = useState<TurmaOption[]>(DEFAULT_TURMAS);
+  const [selectedTurmaKey, setSelectedTurmaKey] = useState<string>('');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [turmaStudents, setTurmaStudents] = useState<{ id_aluno: number; nome_aluno: string }[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState<boolean>(false);
+
   const [isSearching, setIsSearching] = useState(false);
   const [foundStudent, setFoundStudent] = useState<Student | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -253,11 +303,6 @@ export default function App() {
   // Form state
   const [formData, setFormData] = useState(initialFormData);
 
-    const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const masked = formatDateMask(e.target.value);
-    setSearchBirthDate(masked);
-  };
-
   const resetAllFormState = () => {
     setFormData(initialFormData);
     setIsMotherMain(false);
@@ -268,6 +313,129 @@ export default function App() {
     setGuardianSameWhatsapp(true);
     setSiblings([]);
   };
+
+  const handleLogin = (e: FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    const cleanUser = loginUser.trim().toLowerCase();
+    const cleanPass = loginPassword.trim();
+
+    if (!cleanUser || !cleanPass) {
+      setLoginError('Por favor, preencha o usuário e a senha.');
+      return;
+    }
+
+    if (cleanUser === 'tarsila' && cleanPass === 'T@rsila') {
+      setIsAuthenticated(true);
+      localStorage.setItem('@PortalTarsila:Auth', 'true');
+      setLoginError(null);
+      setLoginUser('');
+      setLoginPassword('');
+    } else {
+      setLoginError('Usuário ou senha incorretos. Verifique suas credenciais.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('@PortalTarsila:Auth');
+    setFoundStudent(null);
+    setSelectedTurmaKey('');
+    setSelectedStudentId('');
+    setTurmaStudents([]);
+    setError(null);
+    setLoginError(null);
+  };
+
+  const handleTurmaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const turmaKey = e.target.value;
+    setSelectedTurmaKey(turmaKey);
+    setSelectedStudentId('');
+    setError(null);
+
+    if (!turmaKey) {
+      setTurmaStudents([]);
+      return;
+    }
+
+    const selectedTurmaObj = turmasList.find(t => t.key === turmaKey);
+    if (!selectedTurmaObj) return;
+
+    setIsLoadingStudents(true);
+    try {
+      const { data, error: stErr } = await supabase
+        .from('ALUNOS')
+        .select('id_aluno, nome_aluno, ALUNOS_MATRICULAS!inner(serie_aluno, turma_aluno, ano_letivo_aluno)')
+        .eq('ALUNOS_MATRICULAS.ano_letivo_aluno', 2026)
+        .eq('ALUNOS_MATRICULAS.serie_aluno', selectedTurmaObj.serie)
+        .eq('ALUNOS_MATRICULAS.turma_aluno', selectedTurmaObj.turma)
+        .order('nome_aluno');
+
+      if (stErr) throw stErr;
+
+      const uniqueStudents: { id_aluno: number; nome_aluno: string }[] = [];
+      const seenIds = new Set<number>();
+      (data || []).forEach((item: any) => {
+        if (!seenIds.has(item.id_aluno)) {
+          seenIds.add(item.id_aluno);
+          uniqueStudents.push({
+            id_aluno: item.id_aluno,
+            nome_aluno: item.nome_aluno
+          });
+        }
+      });
+
+      setTurmaStudents(uniqueStudents);
+    } catch (err) {
+      console.error('Erro ao buscar alunos da turma:', err);
+      setError('Erro ao carregar a lista de alunos desta turma.');
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
+
+  // Sincronizar turmas ativas do banco no ano letivo 2026
+  useEffect(() => {
+    async function loadTurmas() {
+      try {
+        const { data, error: tErr } = await supabase
+          .from('ALUNOS_MATRICULAS')
+          .select('serie_aluno, turma_aluno')
+          .eq('ano_letivo_aluno', 2026);
+
+        if (!tErr && data && data.length > 0) {
+          const unique = new Map<string, TurmaOption>();
+          data.forEach(item => {
+            const s = (item.serie_aluno || '').trim();
+            const t = (item.turma_aluno || '').trim();
+            if (s && t) {
+              const key = `${s}_${t}`;
+              if (!unique.has(key)) {
+                const serieLabel = s.toLowerCase().includes('ano') ? s : `${s} Ano`;
+                unique.set(key, {
+                  key,
+                  label: `${serieLabel} ${t}`,
+                  serie: s,
+                  turma: t
+                });
+              }
+            }
+          });
+
+          if (unique.size > 0) {
+            const sorted = Array.from(unique.values()).sort((a, b) =>
+              a.label.localeCompare(b.label, 'pt-BR', { numeric: true })
+            );
+            setTurmasList(sorted);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar turmas do banco, mantendo padrão:', err);
+      }
+    }
+    loadTurmas();
+  }, []);
 
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const cep = e.target.value.replace(/\D/g, '');
@@ -337,31 +505,14 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [foundStudent?.id, currentView, isSuccess]);
 
-  const handleSearch = async (e: FormEvent) => {
-    e.preventDefault();
-
-    const cleanInputName = normalizeText(searchTerm);
-    if (!cleanInputName) {
-      setError('Por favor, informe o nome completo do aluno.');
-      return;
-    }
-
-    const cleanDateDigits = searchBirthDate.replace(/\D/g, '');
-    if (!cleanDateDigits || cleanDateDigits.length < 8) {
-      setError('Por favor, informe a data de nascimento completa do aluno (DD/MM/AAAA).');
-      return;
-    }
-
-    const isoBirthDate = parseDateToISO(searchBirthDate);
-
+  const loadStudentById = async (studentId: number) => {
     setIsSearching(true);
     setError(null);
     setFoundStudent(null);
     setIsSuccess(false);
 
     try {
-      // 1. Search in ALUNOS by data_nasc_aluno and join actual related tables
-      const { data: studentsByDate, error: searchError } = await supabase
+      const { data: matched, error: searchError } = await supabase
         .from('ALUNOS')
         .select(`
           *,
@@ -373,63 +524,11 @@ export default function App() {
           ALUNOS_DADOS_SAUDE (*),
           ALUNOS_RESPONSAVEL (*)
         `)
-        .eq('data_nasc_aluno', isoBirthDate);
+        .eq('id_aluno', studentId)
+        .single();
 
-      if (searchError) throw searchError;
-
-      // Find student whose normalized name matches
-      let matched = studentsByDate?.find(
-        (s: any) => normalizeText(s.nome_aluno) === cleanInputName
-      );
-
-      // Partial match fallback if student full name differs slightly (e.g. compound surname)
-      if (!matched && studentsByDate && studentsByDate.length > 0) {
-        matched = studentsByDate.find((s: any) => {
-          const sName = normalizeText(s.nome_aluno);
-          return sName.includes(cleanInputName) || cleanInputName.includes(sName);
-        });
-      }
-
-      // If still not matched, check if the student exists by name to give accurate and helpful feedback
-      if (!matched) {
-        const firstName = cleanInputName.split(' ')[0];
-        const { data: nameCandidates } = await supabase
-          .from('ALUNOS')
-          .select(`
-            *,
-            ALUNOS_DADOS_GERAIS (*),
-            ALUNOS_DOCUMENTOS (*),
-            ALUNOS_ENDERECOS (*),
-            ALUNOS_MATRICULAS (*),
-            ALUNOS_CONTATOS (*),
-            ALUNOS_DADOS_SAUDE (*),
-            ALUNOS_RESPONSAVEL (*)
-          `)
-          .ilike('nome_aluno', `%${firstName}%`);
-
-        const nameMatch = nameCandidates?.find((s: any) => {
-          const sName = normalizeText(s.nome_aluno);
-          return sName === cleanInputName || sName.includes(cleanInputName) || cleanInputName.includes(sName);
-        });
-
-        if (nameMatch) {
-          if (!nameMatch.data_nasc_aluno) {
-            // Student is in the database but without a birth date yet.
-            // Allow access and let them register the date of birth!
-            matched = nameMatch;
-          } else {
-            setError('A data de nascimento informada não confere com o cadastro do aluno. Verifique a data informada.');
-            return;
-          }
-        } else {
-          setError('Aluno não encontrado. Verifique se o nome completo foi digitado corretamente.');
-          return;
-        }
-      }
-
-      if (!matched) {
-        setError('Aluno não encontrado com os dados informados. Verifique o nome completo e a data de nascimento.');
-        return;
+      if (searchError || !matched) {
+        throw searchError || new Error('Aluno não encontrado.');
       }
 
       // Helper to extract first item of array or single object
@@ -602,7 +701,7 @@ export default function App() {
 
       const certModelo = (documentos.certidao_nasc_modelo_aluno === 'Antigo' || (!documentos.certidao_nasc_matricula_aluno && documentos.certidao_nasc_numero_aluno)) ? 'Antigo' : 'Novo';
 
-      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || isoBirthDate;
+      const birthDate = matched.data_nasc_aluno || dadosGerais.data_nasc_aluno || '';
       const turmaFormatada = [matricula.serie_aluno, matricula.turma_aluno].filter(Boolean).join(' ');
 
       const isSameAddress = respRecord.mesmo_end_responsavel_aluno !== 'Não';
@@ -710,11 +809,20 @@ export default function App() {
         healthInfo: ''
       });
     } catch (err) {
-      console.error('Search error:', err);
-      setError('Erro ao buscar aluno. Por favor, tente novamente.');
+      console.error('Erro ao carregar dados do aluno:', err);
+      setError('Erro ao carregar os dados do aluno. Por favor, tente novamente.');
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const handleAccessStudent = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudentId) {
+      setError('Por favor, selecione um aluno para acessar o cadastro.');
+      return;
+    }
+    await loadStudentById(Number(selectedStudentId));
   };
 
   const handleOpenSaude = () => {
@@ -978,8 +1086,7 @@ export default function App() {
 
       setIsSuccess(true);
       setFoundStudent(null);
-      setSearchTerm('');
-      setSearchBirthDate('');
+      setSelectedStudentId('');
       resetAllFormState();
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     } catch (err) {
@@ -994,8 +1101,7 @@ export default function App() {
     const confirmCancel = window.confirm("Deseja realmente cancelar o preenchimento? Todos os dados não salvos serão perdidos.");
     if (confirmCancel) {
       setFoundStudent(null);
-      setSearchTerm('');
-      setSearchBirthDate('');
+      setSelectedStudentId('');
       resetAllFormState();
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -1091,7 +1197,7 @@ export default function App() {
   );
 
     const isInitialSearch = !foundStudent && !isSuccess && currentView !== 'saude';
-  const isFullScreenView = isInitialSearch || isSuccess;
+  const isFullScreenView = !isAuthenticated || isInitialSearch || isSuccess;
 
   return (
     <div className={cn(
@@ -1111,26 +1217,47 @@ export default function App() {
             EMEF Tarsila do Amaral
           </h1>
 
-          {/* Engrenagem no canto superior direito para alternar Modo Edição */}
-          <button
-            type="button"
-            onClick={toggleEditMode}
-            title={isEditMode ? "Modo Edição Ativado (Clique para desativar)" : "Ativar Modo Edição"}
-            aria-label="Alternar Modo Edição"
-            className={cn(
-              "absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer",
-              isEditMode
-                ? "bg-yellow-400 text-yellow-950 shadow-md ring-2 ring-yellow-200 hover:bg-yellow-500"
-                : "text-white/80 hover:text-white hover:bg-white/10"
+          {/* Botões no canto superior direito */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-2">
+            {/* Engrenagem para alternar Modo Edição (visível quando logado) */}
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={toggleEditMode}
+                title={isEditMode ? "Modo Edição Ativado (Clique para desativar)" : "Ativar Modo Edição"}
+                aria-label="Alternar Modo Edição"
+                className={cn(
+                  "p-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer",
+                  isEditMode
+                    ? "bg-yellow-400 text-yellow-950 shadow-md ring-2 ring-yellow-200 hover:bg-yellow-500"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                )}
+              >
+                <Settings className="w-5 h-5" />
+                {isEditMode && (
+                  <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">
+                    Edição
+                  </span>
+                )}
+              </button>
             )}
-          >
-            <Settings className="w-5 h-5" />
-            {isEditMode && (
-              <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">
-                Edição
-              </span>
+
+            {/* Botão Sair / Logout (visível quando logado) */}
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Sair do sistema"
+                aria-label="Sair"
+                className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">
+                  Sair
+                </span>
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </header>
 
@@ -1146,106 +1273,239 @@ export default function App() {
             : "max-w-4xl mx-auto py-8 px-4"
         )}>
           <AnimatePresence mode="wait">
-            {!foundStudent && !isSuccess && (
-            <motion.div
-              key="search-container"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-4xl mx-auto"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 md:gap-8 items-center w-full">
-                {/* Banner/Logo Image */}
-                <div className="md:col-span-5 flex flex-col items-center justify-center text-center">
-                  <img 
-                    src={logoEmef} 
-                    alt="EMEF Tarsila do Amaral Logo" 
-                    className="max-h-24 sm:max-h-36 md:max-h-56 lg:max-h-64 w-auto object-contain rounded-2xl shadow-xl border-4 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
-                    onError={(e) => {
-                      console.error("Erro ao carregar a logo:", e);
-                    }}
-                  />
-                </div>
-
-                {/* Form Card */}
-                <div className="md:col-span-7 bg-white rounded-2xl p-4 sm:p-6 md:p-7 shadow-xl border border-gray-100 flex flex-col justify-center">
-                  <div className="text-center md:text-left mb-3 sm:mb-4">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
-                    <p className="text-gray-600 mt-1 text-xs sm:text-sm">
-                      Informe o <strong>nome completo</strong> e a <strong>data de nascimento</strong> do aluno para acessar o cadastro
-                    </p>
+            {/* Tela 1: Login de Acesso */}
+            {!isAuthenticated ? (
+              <motion.div
+                key="login-container"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-4xl mx-auto"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 md:gap-8 items-center w-full">
+                  {/* Banner/Logo Image */}
+                  <div className="md:col-span-5 flex flex-col items-center justify-center text-center">
+                    <img 
+                      src={logoEmef} 
+                      alt="EMEF Tarsila do Amaral Logo" 
+                      className="max-h-24 sm:max-h-36 md:max-h-56 lg:max-h-64 w-auto object-contain rounded-2xl shadow-xl border-4 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
+                      onError={(e) => {
+                        console.error("Erro ao carregar a logo:", e);
+                      }}
+                    />
                   </div>
 
-                  <form onSubmit={handleSearch} className="space-y-2.5 sm:space-y-3.5">
-                    <div className="space-y-1 text-left">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700">
-                        Nome completo do aluno
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          placeholder="Ex: Anthony de Jesus Feitoza"
-                          className="w-full pl-10 sm:pl-11 pr-3 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base"
-                          required
-                        />
-                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-                      </div>
+                  {/* Login Card */}
+                  <div className="md:col-span-7 bg-white rounded-2xl p-4 sm:p-6 md:p-7 shadow-xl border border-gray-100 flex flex-col justify-center">
+                    <div className="text-center md:text-left mb-3 sm:mb-4">
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#3b5998] tracking-tight">
+                        Acesso ao Sistema
+                      </h2>
+                      <p className="text-gray-600 mt-1 text-xs sm:text-sm">
+                        Informe seu usuário e senha para acessar o <strong>Cadastro de Alunos</strong>
+                      </p>
                     </div>
 
-                    <div className="space-y-1 text-left">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700">
-                        Data de nascimento do aluno
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={searchBirthDate}
-                          onChange={handleBirthDateChange}
-                          placeholder="DD/MM/AAAA"
-                          maxLength={10}
-                          className="w-full pl-10 sm:pl-11 pr-3 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800"
-                          required
-                        />
-                        <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                    <form onSubmit={handleLogin} className="space-y-3 sm:space-y-4">
+                      <div className="space-y-1 text-left">
+                        <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+                          Usuário
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={loginUser}
+                            onChange={(e) => setLoginUser(e.target.value)}
+                            placeholder="Digite o usuário"
+                            autoComplete="username"
+                            className="w-full pl-10 sm:pl-11 pr-3 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800"
+                            required
+                          />
+                          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
+                        </div>
                       </div>
-                    </div>
-                    
-                    <button
-                      type="submit"
-                      disabled={isSearching}
-                      className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-2.5 sm:py-3 md:py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-sm sm:text-base mt-1 sm:mt-2"
-                    >
-                      {isSearching ? (
-                        <>
-                          <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-                          <span>Verificando cadastro...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-                          <span>Acessar Cadastro do Aluno</span>
-                        </>
-                      )}
-                    </button>
-                  </form>
 
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2.5 text-red-600 text-left text-xs sm:text-sm"
-                    >
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      <p className="font-medium">{error}</p>
-                    </motion.div>
-                  )}
+                      <div className="space-y-1 text-left">
+                        <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+                          Senha
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showLoginPassword ? "text" : "password"}
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="Digite a senha"
+                            autoComplete="current-password"
+                            className="w-full pl-10 sm:pl-11 pr-11 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800"
+                            required
+                          />
+                          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
+                          <button
+                            type="button"
+                            onClick={() => setShowLoginPassword(!showLoginPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 cursor-pointer transition-colors"
+                            title={showLoginPassword ? "Ocultar senha" : "Exibir senha"}
+                          >
+                            {showLoginPassword ? (
+                              <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                            ) : (
+                              <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-2.5 sm:py-3 md:py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm sm:text-base mt-2 cursor-pointer"
+                      >
+                        <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span>Entrar no Sistema</span>
+                      </button>
+                    </form>
+
+                    {loginError && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2.5 text-red-600 text-left text-xs sm:text-sm"
+                      >
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <p className="font-medium">{loginError}</p>
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            ) : !foundStudent && !isSuccess ? (
+              /* Tela 2: Seleção de Turma e Aluno */
+              <motion.div
+                key="student-select-container"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-4xl mx-auto"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 md:gap-8 items-center w-full">
+                  {/* Banner/Logo Image */}
+                  <div className="md:col-span-5 flex flex-col items-center justify-center text-center">
+                    <img 
+                      src={logoEmef} 
+                      alt="EMEF Tarsila do Amaral Logo" 
+                      className="max-h-24 sm:max-h-36 md:max-h-56 lg:max-h-64 w-auto object-contain rounded-2xl shadow-xl border-4 border-white ring-1 ring-gray-100 transition-transform hover:scale-[1.02] duration-300"
+                      onError={(e) => {
+                        console.error("Erro ao carregar a logo:", e);
+                      }}
+                    />
+                  </div>
+
+                  {/* Form Card */}
+                  <div className="md:col-span-7 bg-white rounded-2xl p-4 sm:p-6 md:p-7 shadow-xl border border-gray-100 flex flex-col justify-center">
+                    <div className="text-center md:text-left mb-3 sm:mb-4">
+                      <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#3b5998] tracking-tight">Cadastro de Alunos</h2>
+                      <p className="text-gray-600 mt-1 text-xs sm:text-sm">
+                        Selecione a <strong>série e turma</strong> e em seguida escolha o <strong>aluno</strong> para acessar o cadastro
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleAccessStudent} className="space-y-3 sm:space-y-4">
+                      {/* Dropdown 1: Série e Turma */}
+                      <div className="space-y-1 text-left">
+                        <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+                          Série e Turma
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={selectedTurmaKey}
+                            onChange={handleTurmaChange}
+                            className="w-full pl-10 sm:pl-11 pr-8 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800 appearance-none cursor-pointer"
+                            required
+                          >
+                            <option value="">Selecione uma turma...</option>
+                            {turmasList.map((t) => (
+                              <option key={t.key} value={t.key}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </select>
+                          <GraduationCap className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
+                          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      {/* Dropdown 2: Nome do Aluno */}
+                      <div className="space-y-1 text-left">
+                        <label className="block text-xs sm:text-sm font-semibold text-gray-700">
+                          Nome Completo do Aluno
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={selectedStudentId}
+                            onChange={(e) => {
+                              setSelectedStudentId(e.target.value);
+                              setError(null);
+                            }}
+                            disabled={!selectedTurmaKey || isLoadingStudents}
+                            className="w-full pl-10 sm:pl-11 pr-8 py-2 sm:py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#3b5998] focus:border-transparent transition-all outline-none text-sm sm:text-base text-gray-800 appearance-none disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer"
+                            required
+                          >
+                            <option value="">
+                              {isLoadingStudents
+                                ? 'Carregando lista de alunos...'
+                                : !selectedTurmaKey
+                                ? 'Primeiro selecione a turma acima'
+                                : turmaStudents.length === 0
+                                ? 'Nenhum aluno encontrado nesta turma'
+                                : 'Selecione o aluno...'}
+                            </option>
+                            {turmaStudents.map((st) => (
+                              <option key={st.id_aluno} value={st.id_aluno}>
+                                {st.nome_aluno}
+                              </option>
+                            ))}
+                          </select>
+                          {isLoadingStudents ? (
+                            <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#3b5998] w-4 h-4 sm:w-5 sm:h-5 animate-spin pointer-events-none" />
+                          ) : (
+                            <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
+                          )}
+                          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
+                        </div>
+                      </div>
+                      
+                      <button
+                        type="submit"
+                        disabled={!selectedStudentId || isSearching}
+                        className="w-full bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold py-2.5 sm:py-3 md:py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base mt-2 cursor-pointer"
+                      >
+                        {isSearching ? (
+                          <>
+                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                            <span>Carregando dados do aluno...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span>Acessar Cadastro do Aluno</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    {error && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2.5 text-red-600 text-left text-xs sm:text-sm"
+                      >
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <p className="font-medium">{error}</p>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
 
           {foundStudent && (
             <motion.div
