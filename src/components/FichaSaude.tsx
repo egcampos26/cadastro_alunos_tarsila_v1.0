@@ -86,6 +86,24 @@ const defaultPrintConfig: PrintConfig = {
   elementStyles: {},
 };
 
+export const UBS_BUTANTA_LIST = [
+  'UBS Jardim Jaqueline',
+  'UBS Jardim Alvorada',
+  'UBS Rio Pequeno',
+  'UBS Butantã (CSE Samuel Pessoa)',
+  'UBS São Jorge',
+  'UBS Paulo VI',
+  'UBS Jardim Sarah',
+  'UBS Jardim D\'Abril',
+  'UBS Vila Dalva',
+  'UBS Jardim Peri-Peri',
+  'UBS Caxingui',
+  'UBS Vila Sônia',
+  'UBS Real Parque',
+  'UBS Jardim Colombo',
+  'UBS Vila Regina'
+];
+
 export default function FichaSaude({ student, onBack, isEditMode = false }: FichaSaudeProps) {
   const [printConfig, setPrintConfig] = useState<PrintConfig>(() => {
     const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
@@ -102,6 +120,39 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
   });
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+
+  const emergencyOptions = [
+    student.motherName ? {
+      label: `Mãe: ${student.motherName}`,
+      name: student.motherName,
+      phone: student.motherPhone || student.motherWhatsapp || ''
+    } : null,
+    student.fatherName ? {
+      label: `Pai: ${student.fatherName}`,
+      name: student.fatherName,
+      phone: student.fatherPhone || student.fatherWhatsapp || ''
+    } : null,
+    (student.guardianName && student.guardianName !== student.motherName && student.guardianName !== student.fatherName) ? {
+      label: `Responsável: ${student.guardianName}`,
+      name: student.guardianName,
+      phone: student.guardianPhone || student.guardianWhatsapp || ''
+    } : null,
+  ].filter(Boolean) as { label: string; name: string; phone: string }[];
+
+  const responsibleOptions = [
+    student.motherName ? {
+      label: `Mãe: ${student.motherName}`,
+      name: student.motherName,
+    } : null,
+    student.fatherName ? {
+      label: `Pai: ${student.fatherName}`,
+      name: student.fatherName,
+    } : null,
+    (student.guardianName && student.guardianName !== student.motherName && student.guardianName !== student.fatherName) ? {
+      label: `Responsável: ${student.guardianName}`,
+      name: student.guardianName,
+    } : null,
+  ].filter(Boolean) as { label: string; name: string }[];
 
   useEffect(() => {
     if (!isEditMode && isPreviewMode) {
@@ -176,7 +227,8 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
 
   const [formData, setFormData] = useState<FichaSaudeData>({
     ...initialFichaSaudeData,
-    id_aluno: Number(student.id)
+    id_aluno: Number(student.id),
+    data_preenchimento: new Date().toISOString().split('T')[0]
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -215,7 +267,13 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
           q7_tipo: data.q7_tipo || [],
           q13_tipo: data.q13_tipo || [],
           programa_social: data.programa_social || [],
+          data_preenchimento: data.data_preenchimento || new Date().toISOString().split('T')[0]
         });
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          data_preenchimento: prev.data_preenchimento || new Date().toISOString().split('T')[0]
+        }));
       }
     } catch (error) {
       console.error('Error loading ficha de saude:', error);
@@ -663,7 +721,40 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">10 – Qual é a Unidade Básica de Saúde que utiliza?</label>
-                <input type="text" className={getSaudeFieldClass(formData.q10_ubs)} value={formData.q10_ubs} onChange={e => setFormData({...formData, q10_ubs: e.target.value})} />
+                <div className="space-y-2">
+                  <select
+                    value={UBS_BUTANTA_LIST.includes(formData.q10_ubs) ? formData.q10_ubs : (formData.q10_ubs ? 'OUTRA' : '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'OUTRA') {
+                        if (UBS_BUTANTA_LIST.includes(formData.q10_ubs)) {
+                          setFormData({ ...formData, q10_ubs: '' });
+                        }
+                      } else {
+                        setFormData({ ...formData, q10_ubs: val });
+                      }
+                    }}
+                    className={getSaudeFieldClass(formData.q10_ubs)}
+                  >
+                    <option value="">Selecione a UBS do Butantã...</option>
+                    {UBS_BUTANTA_LIST.map((ubs) => (
+                      <option key={ubs} value={ubs}>
+                        {ubs === 'UBS Jardim Jaqueline' ? '⭐ UBS Jardim Jaqueline (Referência da Escola)' : ubs}
+                      </option>
+                    ))}
+                    <option value="OUTRA">Outra Unidade de Saúde (digitar abaixo)</option>
+                  </select>
+
+                  {(!UBS_BUTANTA_LIST.includes(formData.q10_ubs) || formData.q10_ubs === '') && (
+                    <input
+                      type="text"
+                      placeholder="Ou digite o nome de outra UBS/Posto de Saúde..."
+                      className={getSaudeFieldClass(formData.q10_ubs)}
+                      value={formData.q10_ubs}
+                      onChange={(e) => setFormData({ ...formData, q10_ubs: e.target.value })}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
@@ -706,11 +797,95 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
 
               <div className="grid gap-2 p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <label className="font-semibold">15 – Em caso de doença, a escola deverá chamar:</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
-                  <input type="text" placeholder="Nome 1" className={getSaudeFieldClass(formData.q15_emergencia_nome_1)} value={formData.q15_emergencia_nome_1} onChange={e => setFormData({...formData, q15_emergencia_nome_1: e.target.value})} />
-                  <input type="text" placeholder="Telefone 1" className={getSaudeFieldClass(formData.q15_emergencia_tel_1)} value={formData.q15_emergencia_tel_1} onChange={e => setFormData({...formData, q15_emergencia_tel_1: e.target.value})} />
-                  <input type="text" placeholder="Nome 2" className={getSaudeFieldClass(formData.q15_emergencia_nome_2)} value={formData.q15_emergencia_nome_2} onChange={e => setFormData({...formData, q15_emergencia_nome_2: e.target.value})} />
-                  <input type="text" placeholder="Telefone 2" className={getSaudeFieldClass(formData.q15_emergencia_tel_2)} value={formData.q15_emergencia_tel_2} onChange={e => setFormData({...formData, q15_emergencia_tel_2: e.target.value})} />
+
+                {/* Contato 1 */}
+                <div className="p-3 bg-white rounded-lg border border-gray-200 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase text-gray-500 tracking-wider">Contato Principal (1)</span>
+                    {emergencyOptions.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!val) return;
+                          const opt = emergencyOptions.find(o => o.name === val);
+                          if (opt) {
+                            setFormData(prev => ({
+                              ...prev,
+                              q15_emergencia_nome_1: opt.name,
+                              q15_emergencia_tel_1: opt.phone || prev.q15_emergencia_tel_1
+                            }));
+                          }
+                        }}
+                        className="text-xs bg-blue-50/70 border border-blue-200 text-[#0f254e] rounded-lg px-2.5 py-1 font-medium outline-none cursor-pointer hover:bg-blue-100 transition-colors"
+                      >
+                        <option value="">Preencher rápido (Mãe / Pai / Responsável)...</option>
+                        {emergencyOptions.map(opt => (
+                          <option key={`c1-${opt.name}`} value={opt.name}>{opt.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nome do Contato 1"
+                      className={getSaudeFieldClass(formData.q15_emergencia_nome_1)}
+                      value={formData.q15_emergencia_nome_1}
+                      onChange={e => setFormData({ ...formData, q15_emergencia_nome_1: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Telefone do Contato 1"
+                      className={getSaudeFieldClass(formData.q15_emergencia_tel_1)}
+                      value={formData.q15_emergencia_tel_1}
+                      onChange={e => setFormData({ ...formData, q15_emergencia_tel_1: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Contato 2 */}
+                <div className="p-3 bg-white rounded-lg border border-gray-200 space-y-2 mt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase text-gray-500 tracking-wider">Contato Secundário (2)</span>
+                    {emergencyOptions.length > 0 && (
+                      <select
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!val) return;
+                          const opt = emergencyOptions.find(o => o.name === val);
+                          if (opt) {
+                            setFormData(prev => ({
+                              ...prev,
+                              q15_emergencia_nome_2: opt.name,
+                              q15_emergencia_tel_2: opt.phone || prev.q15_emergencia_tel_2
+                            }));
+                          }
+                        }}
+                        className="text-xs bg-blue-50/70 border border-blue-200 text-[#0f254e] rounded-lg px-2.5 py-1 font-medium outline-none cursor-pointer hover:bg-blue-100 transition-colors"
+                      >
+                        <option value="">Preencher rápido (Mãe / Pai / Responsável)...</option>
+                        {emergencyOptions.map(opt => (
+                          <option key={`c2-${opt.name}`} value={opt.name}>{opt.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nome do Contato 2"
+                      className={getSaudeFieldClass(formData.q15_emergencia_nome_2)}
+                      value={formData.q15_emergencia_nome_2}
+                      onChange={e => setFormData({ ...formData, q15_emergencia_nome_2: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Telefone do Contato 2"
+                      className={getSaudeFieldClass(formData.q15_emergencia_tel_2)}
+                      value={formData.q15_emergencia_tel_2}
+                      onChange={e => setFormData({ ...formData, q15_emergencia_tel_2: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -749,11 +924,11 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
             <h3 className="text-xl font-bold border-b pb-2 text-[#0f254e] mb-4">Programas Sociais</h3>
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
               <label className="font-semibold block mb-3">A família e/ou a criança participam de algum programa social do governo?</label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['Bolsa Alimentação', 'Bolsa-Escola', 'Começar de Novo', 'Renda-Mínima', 'Nenhum', 'Outro'].map(prog => (
-                  <label key={prog} className="flex items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                {['Bolsa Família', 'Bolsa Alimentação', 'Bolsa-Escola', 'Começar de Novo', 'Renda-Mínima', 'Nenhum', 'Outro'].map(prog => (
+                  <label key={prog} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-white rounded-md transition-colors">
                     <input type="checkbox" className="w-4 h-4 rounded text-[#3b5998]" checked={formData.programa_social.includes(prog)} onChange={e => updateCheckboxArray('programa_social', prog, e.target.checked)} />
-                    {prog}
+                    <span className="text-sm font-medium">{prog}</span>
                   </label>
                 ))}
               </div>
@@ -761,13 +936,41 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
           </section>
 
           <div className="flex flex-col md:flex-row gap-6 p-4 bg-blue-50/30 rounded-lg border border-blue-100">
-            <div className="flex-1">
-              <label className="font-semibold block mb-1">Responsável pelo preenchimento</label>
-              <input type="text" placeholder="Nome do Responsável" className="border border-gray-300 p-3 rounded-lg w-full" value={formData.responsavel_preenchimento} onChange={e => setFormData({...formData, responsavel_preenchimento: e.target.value})} />
+            <div className="flex-1 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <label className="font-semibold block">Responsável pelo preenchimento</label>
+                {responsibleOptions.length > 0 && (
+                  <select
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      setFormData(prev => ({ ...prev, responsavel_preenchimento: val }));
+                    }}
+                    className="text-xs bg-white border border-blue-200 text-[#0f254e] rounded-lg px-2.5 py-1 font-medium outline-none cursor-pointer hover:bg-blue-50 transition-colors"
+                  >
+                    <option value="">Selecionar da lista (Mãe, Pai ou Responsável)...</option>
+                    {responsibleOptions.map(opt => (
+                      <option key={`resp-${opt.name}`} value={opt.name}>{opt.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <input 
+                type="text" 
+                placeholder="Nome do Responsável (ou digite manualmente)" 
+                className={getSaudeFieldClass(formData.responsavel_preenchimento, "p-3 bg-white")} 
+                value={formData.responsavel_preenchimento} 
+                onChange={e => setFormData({...formData, responsavel_preenchimento: e.target.value})} 
+              />
             </div>
-            <div className="w-full md:w-1/3">
-              <label className="font-semibold block mb-1">Data</label>
-              <input type="date" className="border border-gray-300 p-3 rounded-lg w-full" value={formData.data_preenchimento} onChange={e => setFormData({...formData, data_preenchimento: e.target.value})} />
+            <div className="w-full md:w-1/3 space-y-2">
+              <label className="font-semibold block">Data</label>
+              <input 
+                type="date" 
+                className={getSaudeFieldClass(formData.data_preenchimento, "p-3 bg-white")} 
+                value={formData.data_preenchimento} 
+                onChange={e => setFormData({...formData, data_preenchimento: e.target.value})} 
+              />
             </div>
           </div>
 
@@ -1134,11 +1337,12 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
             </div>
             <div className="w-full border border-black p-2 font-bold text-[10px]">
               <div className="mb-1">A família e/ou a criança participam de algum programa social do governo?</div>
-              <div className="grid grid-cols-3 gap-2 font-normal">
+              <div className="grid grid-cols-4 gap-2 font-normal">
+                <div><PrintCheck checked={formData.programa_social.includes('Bolsa Família')} /> Bolsa Família</div>
                 <div><PrintCheck checked={formData.programa_social.includes('Bolsa Alimentação')} /> Bolsa Alimentação</div>
-                <div><PrintCheck checked={formData.programa_social.includes('Bolsa-Escola')} /> Bolsa- Escola</div>
+                <div><PrintCheck checked={formData.programa_social.includes('Bolsa-Escola')} /> Bolsa-Escola</div>
                 <div><PrintCheck checked={formData.programa_social.includes('Começar de Novo')} /> Começar de Novo</div>
-                <div><PrintCheck checked={formData.programa_social.includes('Renda-Mínima')} /> Renda- Mínima</div>
+                <div><PrintCheck checked={formData.programa_social.includes('Renda-Mínima')} /> Renda-Mínima</div>
                 <div><PrintCheck checked={formData.programa_social.includes('Nenhum')} /> Nenhum</div>
                 <div><PrintCheck checked={formData.programa_social.includes('Outro')} /> Outro</div>
               </div>

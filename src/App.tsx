@@ -296,6 +296,9 @@ export default function App() {
     setIsEditMode(prev => {
       const next = !prev;
       localStorage.setItem('@PortalTarsila:EditMode', String(next));
+      if (selectedTurmaKey) {
+        fetchTurmaStudents(selectedTurmaKey, next);
+      }
       return next;
     });
   };
@@ -348,12 +351,7 @@ export default function App() {
     setLoginError(null);
   };
 
-  const handleTurmaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const turmaKey = e.target.value;
-    setSelectedTurmaKey(turmaKey);
-    setSelectedStudentId('');
-    setError(null);
-
+  const fetchTurmaStudents = async (turmaKey: string, editMode: boolean) => {
     if (!turmaKey) {
       setTurmaStudents([]);
       return;
@@ -366,7 +364,7 @@ export default function App() {
     try {
       const { data, error: stErr } = await supabase
         .from('ALUNOS')
-        .select('id_aluno, nome_aluno, ALUNOS_MATRICULAS!inner(serie_aluno, turma_aluno, ano_letivo_aluno)')
+        .select('id_aluno, nome_aluno, status_cadastro, ALUNOS_MATRICULAS!inner(serie_aluno, turma_aluno, ano_letivo_aluno)')
         .eq('ALUNOS_MATRICULAS.ano_letivo_aluno', 2026)
         .eq('ALUNOS_MATRICULAS.serie_aluno', selectedTurmaObj.serie)
         .eq('ALUNOS_MATRICULAS.turma_aluno', selectedTurmaObj.turma)
@@ -377,11 +375,17 @@ export default function App() {
       const uniqueStudents: { id_aluno: number; nome_aluno: string }[] = [];
       const seenIds = new Set<number>();
       (data || []).forEach((item: any) => {
+        const isSalvo = (item.status_cadastro || '').toLowerCase() === 'salva' || (item.status_cadastro || '').toLowerCase() === 'concluido';
+        // Se o cadastro já foi concluído e NÃO está em Modo Edição, remove da lista da turma
+        if (!editMode && isSalvo) {
+          return;
+        }
+
         if (!seenIds.has(item.id_aluno)) {
           seenIds.add(item.id_aluno);
           uniqueStudents.push({
             id_aluno: item.id_aluno,
-            nome_aluno: item.nome_aluno
+            nome_aluno: editMode && isSalvo ? `${item.nome_aluno} (JÁ CADASTRADO)` : item.nome_aluno
           });
         }
       });
@@ -393,6 +397,14 @@ export default function App() {
     } finally {
       setIsLoadingStudents(false);
     }
+  };
+
+  const handleTurmaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const turmaKey = e.target.value;
+    setSelectedTurmaKey(turmaKey);
+    setSelectedStudentId('');
+    setError(null);
+    await fetchTurmaStudents(turmaKey, isEditMode);
   };
 
   // Sincronizar turmas ativas do banco no ano letivo 2026
@@ -1086,6 +1098,7 @@ export default function App() {
 
       setIsSuccess(true);
       setFoundStudent(null);
+      setTurmaStudents(prev => prev.filter(s => s.id_aluno !== studentId));
       setSelectedStudentId('');
       resetAllFormState();
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -1263,7 +1276,16 @@ export default function App() {
 
       {currentView === 'saude' && foundStudent ? (
         <main className="max-w-4xl mx-auto py-8 px-4 ficha-saude-view no-scrollbar">
-          <FichaSaude student={foundStudent} onBack={() => setCurrentView('main')} isEditMode={isEditMode} />
+          <FichaSaude
+            student={foundStudent}
+            onBack={() => {
+              setCurrentView('main');
+              if (selectedTurmaKey) {
+                fetchTurmaStudents(selectedTurmaKey, isEditMode);
+              }
+            }}
+            isEditMode={isEditMode}
+          />
         </main>
       ) : (
         <main className={cn(
@@ -2425,6 +2447,15 @@ export default function App() {
                     </p>
                   </div>
                 </section>
+
+                {/* Termo de Ciência e Proteção de Dados (LGPD) */}
+                <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 text-xs sm:text-sm text-blue-950 leading-relaxed flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-[#3b5998] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block mb-1 text-[#0f254e]">Transparência e Tratamento de Dados (LGPD):</span>
+                    Os dados cadastrais e a fotografia do estudante serão tratados pela unidade escolar para fins exclusivos de identificação institucional, controle de frequência, segurança escolar e gestão pedagógica no sistema interno da escola, em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+                  </div>
+                </div>
 
                 <div className="pt-6 border-top border-gray-100 flex flex-col sm:flex-row gap-4">
                   <button
