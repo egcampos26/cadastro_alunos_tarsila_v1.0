@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, RotateCcw, PenLine } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { FichaSaudeData, initialFichaSaudeData } from '../types/saude';
 import { Student } from '../types';
@@ -233,6 +233,7 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isCustomResponsavel, setIsCustomResponsavel] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -937,37 +938,80 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
 
           <div className="flex flex-col md:flex-row gap-6 p-4 bg-blue-50/30 rounded-lg border border-blue-100">
             <div className="flex-1 space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+              <div className="flex items-center justify-between gap-2 mb-1">
                 <label className="font-semibold block">Responsável pelo preenchimento</label>
-                {responsibleOptions.length > 0 && (
-                  <select
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (!val) return;
-                      setFormData(prev => ({ ...prev, responsavel_preenchimento: val }));
-                    }}
-                    className="text-xs bg-white border border-blue-200 text-[#0f254e] rounded-lg px-2.5 py-1 font-medium outline-none cursor-pointer hover:bg-blue-50 transition-colors"
+                {!isCustomResponsavel ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomResponsavel(true)}
+                    className="text-xs text-[#3b5998] hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                   >
-                    <option value="">Selecionar da lista (Mãe, Pai ou Responsável)...</option>
-                    {responsibleOptions.map(opt => (
-                      <option key={`resp-${opt.name}`} value={opt.name}>{opt.label}</option>
-                    ))}
-                  </select>
+                    <PenLine className="w-3.5 h-3.5" />
+                    <span>+ Outro responsável</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomResponsavel(false)}
+                    className="text-xs text-[#3b5998] hover:text-blue-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Selecionar da lista</span>
+                  </button>
                 )}
               </div>
-              <input 
-                type="text" 
-                placeholder="Nome do Responsável (ou digite manualmente)" 
-                className={getSaudeFieldClass(formData.responsavel_preenchimento, "p-3 bg-white")} 
-                value={formData.responsavel_preenchimento} 
-                onChange={e => setFormData({...formData, responsavel_preenchimento: e.target.value})} 
-              />
+
+              {!isCustomResponsavel ? (
+                <select
+                  value={formData.responsavel_preenchimento}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__OUTRO__') {
+                      setIsCustomResponsavel(true);
+                    } else {
+                      setFormData(prev => ({ ...prev, responsavel_preenchimento: val }));
+                    }
+                  }}
+                  className={getSaudeFieldClass(formData.responsavel_preenchimento, "p-3 bg-white text-sm cursor-pointer")}
+                >
+                  <option value="">Selecione o responsável pelo preenchimento...</option>
+                  {responsibleOptions.map(opt => (
+                    <option key={`resp-${opt.name}`} value={opt.name}>{opt.label}</option>
+                  ))}
+                  {formData.responsavel_preenchimento && !responsibleOptions.some(opt => opt.name === formData.responsavel_preenchimento) && (
+                    <option value={formData.responsavel_preenchimento}>
+                      Outro: {formData.responsavel_preenchimento}
+                    </option>
+                  )}
+                  <option value="__OUTRO__">➕ Adicionar outro responsável (digitar)...</option>
+                </select>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Digite o nome do outro responsável..." 
+                    className={getSaudeFieldClass(formData.responsavel_preenchimento, "p-3 bg-white text-sm")} 
+                    value={formData.responsavel_preenchimento} 
+                    onChange={e => setFormData({...formData, responsavel_preenchimento: e.target.value})} 
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomResponsavel(false)}
+                    title="Voltar para a lista suspensa"
+                    className="px-3.5 py-3 bg-gray-100 hover:bg-gray-200 text-[#0f254e] font-semibold text-xs rounded-lg flex items-center gap-1.5 border border-gray-300 transition-colors shrink-0 shadow-sm cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Lista</span>
+                  </button>
+                </div>
+              )}
             </div>
             <div className="w-full md:w-1/3 space-y-2">
-              <label className="font-semibold block">Data</label>
+              <label className="font-semibold block mb-1">Data</label>
               <input 
                 type="date" 
-                className={getSaudeFieldClass(formData.data_preenchimento, "p-3 bg-white")} 
+                className={getSaudeFieldClass(formData.data_preenchimento, "p-3 bg-white text-sm")} 
                 value={formData.data_preenchimento} 
                 onChange={e => setFormData({...formData, data_preenchimento: e.target.value})} 
               />
