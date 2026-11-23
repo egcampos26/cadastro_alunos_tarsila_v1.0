@@ -1,11 +1,12 @@
 import React, { useState, useEffect, FormEvent, Component, ErrorInfo, ReactNode } from 'react';
 import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
-import { Student, SiblingInfo } from './types';
+import { Student, SiblingInfo, AdditionalContact, CampoModificadoEol } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown } from 'lucide-react';
-import { cn } from './lib/utils';
+import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown, Plus, Trash2, ArrowRight, Clock } from 'lucide-react';
+import { cn, maskPhone } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
+import FichaSaudeE from './components/FichaSaudeE';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -127,6 +128,7 @@ const initialFormData = {
   gender: '',
   race: '',
   // Documentos do Aluno (ALUNOS_DOCUMENTOS)
+  possuiCin: false,
   cpf: '',
   rg: '',
   rgDigit: '',
@@ -162,6 +164,7 @@ const initialFormData = {
   fatherPhone: '',
   fatherWhatsapp: '',
   fatherEmail: '',
+  additionalContacts: [] as AdditionalContact[],
   cep: '',
   street: '',
   number: '',
@@ -197,6 +200,222 @@ const parseDateToISO = (value: string) => {
   return clean;
 };
 
+interface EolFieldDefinition {
+  key: keyof typeof initialFormData;
+  label: string;
+  categoria: string;
+  type?: 'phone' | 'doc' | 'date' | 'text';
+}
+
+const EOL_TRACKED_FIELDS: EolFieldDefinition[] = [
+  // Dados Gerais
+  { key: 'birthDate', label: 'Data de Nascimento', categoria: 'Dados Gerais', type: 'date' },
+  { key: 'gender', label: 'Sexo / Gênero', categoria: 'Dados Gerais' },
+  { key: 'race', label: 'Raça / Cor', categoria: 'Dados Gerais' },
+
+  // Documentos
+  { key: 'cpf', label: 'CPF do Aluno', categoria: 'Documentos', type: 'doc' },
+  { key: 'rg', label: 'RG do Aluno', categoria: 'Documentos', type: 'doc' },
+  { key: 'rgDigit', label: 'Dígito do RG', categoria: 'Documentos' },
+  { key: 'rgUf', label: 'UF do RG', categoria: 'Documentos' },
+  { key: 'rgOrgao', label: 'Órgão Emissor do RG', categoria: 'Documentos' },
+  { key: 'rgDate', label: 'Data de Emissão do RG', categoria: 'Documentos', type: 'date' },
+  { key: 'rne', label: 'RNE', categoria: 'Documentos' },
+  { key: 'certidaoTipo', label: 'Tipo de Certidão', categoria: 'Documentos' },
+  { key: 'certidaoModelo', label: 'Modelo da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoMatricula', label: 'Matrícula da Certidão', categoria: 'Documentos', type: 'doc' },
+  { key: 'certidaoNumero', label: 'Número da Certidão', categoria: 'Documentos', type: 'doc' },
+  { key: 'certidaoLivro', label: 'Livro da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoFolha', label: 'Folha da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoCartorio', label: 'Cartório da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoDistrito', label: 'Distrito da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoMunicipio', label: 'Município da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoUf', label: 'UF da Certidão', categoria: 'Documentos' },
+  { key: 'certidaoDataEmissao', label: 'Data de Emissão da Certidão', categoria: 'Documentos', type: 'date' },
+  { key: 'nis', label: 'NIS', categoria: 'Documentos', type: 'doc' },
+  { key: 'cnsSus', label: 'Cartão SUS', categoria: 'Documentos', type: 'doc' },
+
+  // Endereço
+  { key: 'cep', label: 'CEP (Aluno)', categoria: 'Endereço', type: 'doc' },
+  { key: 'street', label: 'Logradouro (Aluno)', categoria: 'Endereço' },
+  { key: 'number', label: 'Número (Aluno)', categoria: 'Endereço' },
+  { key: 'complement', label: 'Complemento (Aluno)', categoria: 'Endereço' },
+  { key: 'neighborhood', label: 'Bairro (Aluno)', categoria: 'Endereço' },
+  { key: 'city', label: 'Município (Aluno)', categoria: 'Endereço' },
+  { key: 'state', label: 'Estado (Aluno)', categoria: 'Endereço' },
+
+  // Mãe
+  { key: 'motherName', label: 'Nome da Mãe', categoria: 'Filiação 1' },
+  { key: 'motherCpf', label: 'CPF da Mãe', categoria: 'Filiação 1', type: 'doc' },
+  { key: 'motherPhone', label: 'Celular da Mãe', categoria: 'Filiação 1', type: 'phone' },
+  { key: 'motherWhatsapp', label: 'WhatsApp da Mãe', categoria: 'Filiação 1', type: 'phone' },
+  { key: 'motherEmail', label: 'E-mail da Mãe', categoria: 'Filiação 1' },
+
+  // Pai
+  { key: 'fatherName', label: 'Nome do Pai', categoria: 'Filiação 2' },
+  { key: 'fatherCpf', label: 'CPF do Pai', categoria: 'Filiação 2', type: 'doc' },
+  { key: 'fatherPhone', label: 'Celular do Pai', categoria: 'Filiação 2', type: 'phone' },
+  { key: 'fatherWhatsapp', label: 'WhatsApp do Pai', categoria: 'Filiação 2', type: 'phone' },
+  { key: 'fatherEmail', label: 'E-mail do Pai', categoria: 'Filiação 2' },
+
+  // Responsável Legal
+  { key: 'guardianName', label: 'Nome do Responsável', categoria: 'Responsável' },
+  { key: 'guardianCpf', label: 'CPF do Responsável', categoria: 'Responsável', type: 'doc' },
+  { key: 'guardianPhone', label: 'Celular do Responsável', categoria: 'Responsável', type: 'phone' },
+  { key: 'guardianWhatsapp', label: 'WhatsApp do Responsável', categoria: 'Responsável', type: 'phone' },
+  { key: 'guardianEmail', label: 'E-mail do Responsável', categoria: 'Responsável' },
+
+  // Endereço Responsável (se diferente)
+  { key: 'respCep', label: 'CEP do Responsável', categoria: 'Endereço Responsável', type: 'doc' },
+  { key: 'respStreet', label: 'Logradouro do Responsável', categoria: 'Endereço Responsável' },
+  { key: 'respNumber', label: 'Número do Responsável', categoria: 'Endereço Responsável' },
+  { key: 'respComplement', label: 'Complemento do Responsável', categoria: 'Endereço Responsável' },
+  { key: 'respNeighborhood', label: 'Bairro do Responsável', categoria: 'Endereço Responsável' },
+  { key: 'respCity', label: 'Município do Responsável', categoria: 'Endereço Responsável' },
+  { key: 'respState', label: 'Estado do Responsável', categoria: 'Endereço Responsável' },
+];
+
+export const calculateStudentEolDivergences = (
+  original: typeof initialFormData | null,
+  current: typeof initialFormData,
+  options?: {
+    isMotherMain?: boolean;
+    isFatherMain?: boolean;
+    motherSameWhatsapp?: boolean;
+    fatherSameWhatsapp?: boolean;
+    guardianSameWhatsapp?: boolean;
+  }
+): CampoModificadoEol[] => {
+  if (!original) return [];
+
+  const isBlank = (val: any): boolean => {
+    if (val === undefined || val === null) return true;
+    const str = String(val).trim();
+    if (str === '' || str === '-' || str === '--' || str === '---') return true;
+    const lower = str.toLowerCase();
+    return lower === 'n/a' || lower === 'null' || lower === 'undefined' || lower === '(vazio)' || lower === '(em branco)';
+  };
+
+  const changed: CampoModificadoEol[] = [];
+
+  for (const meta of EOL_TRACKED_FIELDS) {
+    let rawOld = original[meta.key];
+    let rawNew = current[meta.key];
+
+    // Ajustar whatsapps efetivos com base no toggle "mesmo número"
+    if (meta.key === 'motherWhatsapp' && options?.motherSameWhatsapp) {
+      rawNew = current.motherPhone;
+    }
+    if (meta.key === 'fatherWhatsapp' && options?.fatherSameWhatsapp) {
+      rawNew = current.fatherPhone;
+    }
+    if (meta.key === 'guardianWhatsapp' && options?.guardianSameWhatsapp) {
+      rawNew = current.guardianPhone;
+    }
+
+    const oldBlank = isBlank(rawOld);
+    const newBlank = isBlank(rawNew);
+
+    if (oldBlank && newBlank) continue;
+
+    const oldStr = !oldBlank ? String(rawOld).trim() : '';
+    const newStr = !newBlank ? String(rawNew).trim() : '';
+
+    // 1. DADO APAGADO / EXCLUÍDO
+    if (!oldBlank && newBlank) {
+      changed.push({
+        campo: meta.label,
+        valor: '(Apagado / Excluído)',
+        valorAnterior: oldStr,
+        categoria: meta.categoria,
+        acao: 'apagado'
+      });
+      continue;
+    }
+
+    // 2. NOVO DADO ADICIONADO
+    if (oldBlank && !newBlank) {
+      changed.push({
+        campo: meta.label,
+        valor: newStr,
+        valorAnterior: '(Vazio)',
+        categoria: meta.categoria,
+        acao: 'adicionado'
+      });
+      continue;
+    }
+
+    // 3. COMPARAR DE FORMA INTELIGENTE
+    if (meta.type === 'phone') {
+      const digitsOld = oldStr.replace(/\D/g, '');
+      const digitsNew = newStr.replace(/\D/g, '');
+      if (digitsOld && digitsNew && digitsOld === digitsNew) continue;
+    } else if (meta.type === 'doc') {
+      const cleanOld = oldStr.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const cleanNew = newStr.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (cleanOld && cleanNew && cleanOld === cleanNew) continue;
+    } else if (meta.type === 'date') {
+      const dOld = oldStr.slice(0, 10);
+      const dNew = newStr.slice(0, 10);
+      if (dOld === dNew) continue;
+    } else {
+      if (oldStr.trim().toLowerCase() === newStr.trim().toLowerCase()) continue;
+    }
+
+    changed.push({
+      campo: meta.label,
+      valor: newStr,
+      valorAnterior: oldStr,
+      categoria: meta.categoria,
+      acao: 'alterado'
+    });
+  }
+
+  // CIN (Carteira de Identidade Nacional)
+  if (original.possuiCin !== current.possuiCin) {
+    changed.push({
+      campo: 'Possui apenas CIN (sem RG estadual)',
+      valor: current.possuiCin ? 'Sim (RG Dispensado)' : 'Não (Possui RG Civil)',
+      valorAnterior: original.possuiCin ? 'Sim' : 'Não',
+      categoria: 'Documentos',
+      acao: 'alterado'
+    });
+  }
+
+  // Contatos Adicionais
+  const oldContatos = Array.isArray(original.additionalContacts) ? original.additionalContacts : [];
+  const newContatos = Array.isArray(current.additionalContacts) ? current.additionalContacts : [];
+  if (JSON.stringify(oldContatos) !== JSON.stringify(newContatos)) {
+    if (oldContatos.length === 0 && newContatos.length > 0) {
+      changed.push({
+        campo: 'Contatos Adicionais',
+        valor: `${newContatos.length} contato(s): ` + newContatos.map((c: any) => `${c.name} (${c.relationship} - ${c.phone})`).join(', '),
+        valorAnterior: '(Nenhum)',
+        categoria: 'Contatos',
+        acao: 'adicionado'
+      });
+    } else if (oldContatos.length > 0 && newContatos.length === 0) {
+      changed.push({
+        campo: 'Contatos Adicionais',
+        valor: '(Apagado / Excluído)',
+        valorAnterior: `${oldContatos.length} contato(s)`,
+        categoria: 'Contatos',
+        acao: 'apagado'
+      });
+    } else {
+      changed.push({
+        campo: 'Contatos Adicionais',
+        valor: `${newContatos.length} contato(s): ` + newContatos.map((c: any) => `${c.name} (${c.relationship} - ${c.phone})`).join(', '),
+        valorAnterior: `${oldContatos.length} contato(s)`,
+        categoria: 'Contatos',
+        acao: 'alterado'
+      });
+    }
+  }
+
+  return changed;
+};
+
 const isFieldEmpty = (value: string | number | undefined | null) => {
   if (value === undefined || value === null) return true;
   const str = String(value).trim();
@@ -209,9 +428,10 @@ const isFieldEmpty = (value: string | number | undefined | null) => {
 
 const getFieldClass = (
   value: string | number | undefined | null,
-  extra: string = ''
+  extra: string = '',
+  isOptional: boolean = false
 ) => {
-  const empty = isFieldEmpty(value);
+  const empty = !isOptional && isFieldEmpty(value);
   return cn(
     "w-full px-4 py-3 rounded-lg outline-none transition-all duration-150 text-gray-800",
     empty
@@ -272,8 +492,9 @@ export default function App() {
   const [turmasList, setTurmasList] = useState<TurmaOption[]>(DEFAULT_TURMAS);
   const [selectedTurmaKey, setSelectedTurmaKey] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [turmaStudents, setTurmaStudents] = useState<{ id_aluno: number; nome_aluno: string }[]>([]);
+  const [turmaStudents, setTurmaStudents] = useState<{ id_aluno: number; nome_aluno: string; isSalvo: boolean }[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState<boolean>(false);
+  const [originalSnapshot, setOriginalSnapshot] = useState<typeof initialFormData | null>(null);
 
   const [isSearching, setIsSearching] = useState(false);
   const [foundStudent, setFoundStudent] = useState<Student | null>(null);
@@ -287,7 +508,7 @@ export default function App() {
   const [fatherSameWhatsapp, setFatherSameWhatsapp] = useState(true);
   const [guardianSameWhatsapp, setGuardianSameWhatsapp] = useState(true);
   const [siblings, setSiblings] = useState<SiblingInfo[]>([]);
-  const [currentView, setCurrentView] = useState<'main' | 'saude'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'saude' | 'saudeE'>('main');
   const [isEditMode, setIsEditMode] = useState<boolean>(() => {
     return localStorage.getItem('@PortalTarsila:EditMode') === 'true';
   });
@@ -308,6 +529,7 @@ export default function App() {
 
   const resetAllFormState = () => {
     setFormData(initialFormData);
+    setOriginalSnapshot(null);
     setIsMotherMain(false);
     setIsFatherMain(false);
     setSameAddressAsStudent(true);
@@ -351,7 +573,7 @@ export default function App() {
     setLoginError(null);
   };
 
-  const fetchTurmaStudents = async (turmaKey: string, editMode: boolean) => {
+  const fetchTurmaStudents = async (turmaKey: string, _editMode?: boolean) => {
     if (!turmaKey) {
       setTurmaStudents([]);
       return;
@@ -372,20 +594,17 @@ export default function App() {
 
       if (stErr) throw stErr;
 
-      const uniqueStudents: { id_aluno: number; nome_aluno: string }[] = [];
+      const uniqueStudents: { id_aluno: number; nome_aluno: string; isSalvo: boolean }[] = [];
       const seenIds = new Set<number>();
       (data || []).forEach((item: any) => {
         const isSalvo = (item.status_cadastro || '').toLowerCase() === 'salva' || (item.status_cadastro || '').toLowerCase() === 'concluido';
-        // Se o cadastro já foi concluído e NÃO está em Modo Edição, remove da lista da turma
-        if (!editMode && isSalvo) {
-          return;
-        }
 
         if (!seenIds.has(item.id_aluno)) {
           seenIds.add(item.id_aluno);
           uniqueStudents.push({
             id_aluno: item.id_aluno,
-            nome_aluno: editMode && isSalvo ? `${item.nome_aluno} (JÁ CADASTRADO)` : item.nome_aluno
+            nome_aluno: item.nome_aluno,
+            isSalvo
           });
         }
       });
@@ -710,6 +929,10 @@ export default function App() {
       const studentRgOrgao = documentos.rg_orgao_emissao_aluno?.includes('-->') ? '' : (documentos.rg_orgao_emissao_aluno || '');
       const studentRgDate = documentos.rg_data_emissao_aluno || '';
       const studentRne = (documentos.rne_aluno === 'Não' || documentos.rne_aluno === 'Sim') ? '' : (documentos.rne_aluno || '');
+      const studentPossuiCin = Boolean(documentos.possui_cin);
+      const loadedContatosAdicionais: AdditionalContact[] = Array.isArray(contatos.contatos_adicionais)
+        ? contatos.contatos_adicionais
+        : (Array.isArray(dadosCompletos.contatos_adicionais) ? dadosCompletos.contatos_adicionais : []);
 
       const certModelo = (documentos.certidao_nasc_modelo_aluno === 'Antigo' || (!documentos.certidao_nasc_matricula_aluno && documentos.certidao_nasc_numero_aluno)) ? 'Antigo' : 'Novo';
 
@@ -732,6 +955,8 @@ export default function App() {
         cpf: documentos.cpf_aluno || '',
         rg: studentRg,
         rgDigit: studentRgDigit,
+        possuiCin: studentPossuiCin,
+        additionalContacts: loadedContatosAdicionais,
         guardianName: activeGuardianName,
         guardianCpf: activeGuardianCpf,
         guardianPhone: activeGuardianPhone,
@@ -765,16 +990,17 @@ export default function App() {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       });
 
-      setFormData({
+      const loadedFormData = {
         birthDate: birthDate,
         gender: normalizeGender(dadosGerais.genero_aluno),
         race: normalizeRace(dadosGerais.raca_aluno),
+        possuiCin: studentPossuiCin,
         cpf: documentos.cpf_aluno || '',
-        rg: studentRg,
-        rgDigit: studentRgDigit,
-        rgUf: studentRgUf,
-        rgOrgao: studentRgOrgao,
-        rgDate: studentRgDate,
+        rg: studentPossuiCin ? '' : studentRg,
+        rgDigit: studentPossuiCin ? '' : studentRgDigit,
+        rgUf: studentPossuiCin ? '' : studentRgUf,
+        rgOrgao: studentPossuiCin ? '' : studentRgOrgao,
+        rgDate: studentPossuiCin ? '' : studentRgDate,
         rne: studentRne,
         certidaoTipo: documentos.tipo_certidao_civil_aluno || 'Certidão de Nascimento',
         certidaoModelo: certModelo,
@@ -791,19 +1017,20 @@ export default function App() {
         cnsSus: documentos.cns_sus_aluno || '',
         guardianName: initialGuardianName,
         guardianCpf: initialGuardianCpf,
-        guardianPhone: finalGuardianPhoneVal,
-        guardianWhatsapp: finalGuardianWhatsappVal,
+        guardianPhone: maskPhone(finalGuardianPhoneVal),
+        guardianWhatsapp: maskPhone(finalGuardianWhatsappVal),
         guardianEmail: initialGuardianEmail,
         motherName: motherName,
         motherCpf: motherCpf,
-        motherPhone: motherPhone,
-        motherWhatsapp: finalMotherWhatsapp,
+        motherPhone: maskPhone(motherPhone),
+        motherWhatsapp: maskPhone(finalMotherWhatsapp),
         motherEmail: initialMotherMain ? (contatos.email_responsavel || '') : '',
         fatherName: fatherName,
         fatherCpf: fatherCpf,
-        fatherPhone: fatherPhone,
-        fatherWhatsapp: finalFatherWhatsapp,
+        fatherPhone: maskPhone(fatherPhone),
+        fatherWhatsapp: maskPhone(finalFatherWhatsapp),
         fatherEmail: initialFatherMain ? (contatos.email_responsavel || '') : '',
+        additionalContacts: loadedContatosAdicionais,
         cep: addressCep,
         street: addressStreet,
         number: addressNumber,
@@ -819,7 +1046,10 @@ export default function App() {
         respCity: !isSameAddress ? (respRecord.municipio_responsavel_aluno || 'São Paulo') : '',
         respState: !isSameAddress ? (respRecord.uf_responsavel_aluno || 'SP') : '',
         healthInfo: ''
-      });
+      };
+
+      setFormData(loadedFormData);
+      setOriginalSnapshot(loadedFormData);
     } catch (err) {
       console.error('Erro ao carregar dados do aluno:', err);
       setError('Erro ao carregar os dados do aluno. Por favor, tente novamente.');
@@ -877,7 +1107,7 @@ export default function App() {
     e.preventDefault();
     if (!foundStudent) return;
 
-    const confirmSave = window.confirm("Deseja realmente salvar? Não será possível voltar ao formulário para refazer.");
+    const confirmSave = window.confirm("Deseja salvar as informações cadastrais do aluno? O cadastro permanecerá disponível para novas edições e atualizações a qualquer momento.");
     if (!confirmSave) return;
 
     setIsSubmitting(true);
@@ -917,13 +1147,54 @@ export default function App() {
         finalGuardianEmail = formData.guardianEmail;
       }
 
-      // 1. Update ALUNOS birth date and mark status_cadastro as 'salva'
+      // 1. Calcular divergências em relação ao snapshot inicial carregado do banco
+      const newDivergences = calculateStudentEolDivergences(originalSnapshot, formData, {
+        isMotherMain,
+        isFatherMain,
+        motherSameWhatsapp,
+        fatherSameWhatsapp,
+        guardianSameWhatsapp
+      });
+
+      // Carregar divergências pré-existentes para mesclar sem perder histórico de alterações pendentes
+      const { data: currentAlunoRow } = await supabase
+        .from('ALUNOS')
+        .select('campos_modificados_eol, pendente_eol')
+        .eq('id_aluno', studentId)
+        .maybeSingle();
+
+      let existingDivergences: CampoModificadoEol[] = [];
+      if (currentAlunoRow?.campos_modificados_eol) {
+        try {
+          existingDivergences = typeof currentAlunoRow.campos_modificados_eol === 'string'
+            ? JSON.parse(currentAlunoRow.campos_modificados_eol)
+            : currentAlunoRow.campos_modificados_eol;
+        } catch {
+          existingDivergences = [];
+        }
+      }
+
+      // Mescla as divergências (a mais recente substitui a do mesmo campo, ou adiciona novo campo)
+      const mergedDivergencesMap = new Map<string, CampoModificadoEol>();
+      existingDivergences.forEach(item => {
+        if (item && item.campo) mergedDivergencesMap.set(item.campo, item);
+      });
+      newDivergences.forEach(item => {
+        if (item && item.campo) mergedDivergencesMap.set(item.campo, item);
+      });
+      const finalDivergences = Array.from(mergedDivergencesMap.values());
+
+      // 2. Atualizar ALUNOS com status_cadastro = 'salva', data e sinalização para o EOL
       const alunosUpdate: Record<string, any> = {
         status_cadastro: 'salva',
         data_cadastro_salvo: new Date().toISOString()
       };
       if (formData.birthDate) {
         alunosUpdate.data_nasc_aluno = formData.birthDate;
+      }
+      if (finalDivergences.length > 0) {
+        alunosUpdate.pendente_eol = true;
+        alunosUpdate.campos_modificados_eol = finalDivergences;
       }
       await supabase
         .from('ALUNOS')
@@ -952,12 +1223,13 @@ export default function App() {
         .from('ALUNOS_DOCUMENTOS')
         .upsert({
           id_aluno: studentId,
+          possui_cin: formData.possuiCin || false,
           cpf_aluno: formData.cpf || null,
-          rg_aluno: formData.rg || null,
-          rg_digito_aluno: formData.rgDigit || null,
-          rg_uf_aluno: formData.rgUf || null,
-          rg_orgao_emissao_aluno: formData.rgOrgao || null,
-          rg_data_emissao_aluno: formData.rgDate || null,
+          rg_aluno: formData.possuiCin ? null : (formData.rg || null),
+          rg_digito_aluno: formData.possuiCin ? null : (formData.rgDigit || null),
+          rg_uf_aluno: formData.possuiCin ? null : (formData.rgUf || null),
+          rg_orgao_emissao_aluno: formData.possuiCin ? null : (formData.rgOrgao || null),
+          rg_data_emissao_aluno: formData.possuiCin ? null : (formData.rgDate || null),
           rne_aluno: formData.rne || null,
           tipo_certidao_civil_aluno: formData.certidaoTipo || 'Certidão de Nascimento',
           certidao_nasc_modelo_aluno: formData.certidaoModelo || 'Novo',
@@ -1080,6 +1352,7 @@ export default function App() {
       dadosCompletos.whatsapp_mae = effectiveMotherWhatsapp;
       dadosCompletos.whatsapp_pai = effectiveFatherWhatsapp;
       dadosCompletos.whatsapp_responsavel = effectiveGuardianWhatsapp;
+      dadosCompletos.contatos_adicionais = formData.additionalContacts || [];
 
       const emailResponsavel = finalGuardianEmail || formData.motherEmail || formData.fatherEmail || null;
 
@@ -1091,6 +1364,7 @@ export default function App() {
           whatsapp_mae: effectiveMotherWhatsapp,
           whatsapp_pai: effectiveFatherWhatsapp,
           whatsapp_responsavel: effectiveGuardianWhatsapp,
+          contatos_adicionais: formData.additionalContacts || [],
           dados_completos: JSON.stringify(dadosCompletos)
         }, { onConflict: 'id_aluno' });
 
@@ -1098,8 +1372,9 @@ export default function App() {
 
       setIsSuccess(true);
       setFoundStudent(null);
-      setTurmaStudents(prev => prev.filter(s => s.id_aluno !== studentId));
-      setSelectedStudentId('');
+      // Mantém o aluno na lista da turma e marca em verde como salvo!
+      setTurmaStudents(prev => prev.map(s => s.id_aluno === studentId ? { ...s, isSalvo: true } : s));
+      setSelectedStudentId(String(studentId));
       resetAllFormState();
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     } catch (err) {
@@ -1209,7 +1484,7 @@ export default function App() {
     </motion.div>
   );
 
-    const isInitialSearch = !foundStudent && !isSuccess && currentView !== 'saude';
+    const isInitialSearch = !foundStudent && !isSuccess && currentView === 'main';
   const isFullScreenView = !isAuthenticated || isInitialSearch || isSuccess;
 
   return (
@@ -1283,6 +1558,28 @@ export default function App() {
               if (selectedTurmaKey) {
                 fetchTurmaStudents(selectedTurmaKey, isEditMode);
               }
+            }}
+            onOpenFichaE={() => {
+              setCurrentView('saudeE');
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            }}
+            isEditMode={isEditMode}
+          />
+        </main>
+      ) : currentView === 'saudeE' && foundStudent ? (
+        <main className="max-w-4xl mx-auto py-8 px-4 ficha-saude-view no-scrollbar">
+          <FichaSaudeE
+            student={foundStudent}
+            onBack={() => {
+              setCurrentView('saude');
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            }}
+            onBackToCadastro={() => {
+              setCurrentView('main');
+              if (selectedTurmaKey) {
+                fetchTurmaStudents(selectedTurmaKey, isEditMode);
+              }
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
             }}
             isEditMode={isEditMode}
           />
@@ -1481,8 +1778,13 @@ export default function App() {
                                 : 'Selecione o aluno...'}
                             </option>
                             {turmaStudents.map((st) => (
-                              <option key={st.id_aluno} value={st.id_aluno}>
-                                {st.nome_aluno}
+                              <option
+                                key={st.id_aluno}
+                                value={st.id_aluno}
+                                className={st.isSalvo ? "text-emerald-700 font-bold bg-emerald-50" : ""}
+                                style={st.isSalvo ? { color: '#047857', fontWeight: 700, backgroundColor: '#ecfdf5' } : undefined}
+                              >
+                                {st.isSalvo ? `🟢 ${st.nome_aluno} (Salvo)` : st.nome_aluno}
                               </option>
                             ))}
                           </select>
@@ -1493,6 +1795,47 @@ export default function App() {
                           )}
                           <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
                         </div>
+
+                        {selectedStudentId && (() => {
+                          const currentSelected = turmaStudents.find(s => String(s.id_aluno) === selectedStudentId);
+                          if (!currentSelected) return null;
+                          return (
+                            <div className={cn(
+                              "mt-2 p-2.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 border transition-all",
+                              currentSelected.isSalvo 
+                                ? "bg-emerald-50 border-emerald-300 text-emerald-900" 
+                                : "bg-amber-50 border-amber-200 text-amber-900"
+                            )}>
+                              <div className="flex items-center gap-2">
+                                {currentSelected.isSalvo ? (
+                                  <>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>Cadastro <strong>já salvo</strong>. Pode ser aberto para alterações e novas atualizações.</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>Cadastro <strong>pendente de validação/salvamento</strong>.</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {selectedTurmaKey && turmaStudents.length > 0 && (
+                          <div className="mt-2.5 p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs flex items-center justify-between text-gray-700">
+                            <div className="flex items-center gap-1.5 font-medium">
+                              <span>Alunos da Turma:</span>
+                              <span className="font-bold text-gray-900">
+                                {turmaStudents.filter(s => s.isSalvo).length} de {turmaStudents.length} salvos
+                              </span>
+                            </div>
+                            <span className="font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                              {Math.round((turmaStudents.filter(s => s.isSalvo).length / turmaStudents.length) * 100)}% concluído
+                            </span>
+                          </div>
+                        )}
                       </div>
                       
                       <button
@@ -1508,7 +1851,11 @@ export default function App() {
                         ) : (
                           <>
                             <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span>Acessar Cadastro do Aluno</span>
+                            <span>
+                              {turmaStudents.find(s => String(s.id_aluno) === selectedStudentId)?.isSalvo
+                                ? 'Abrir / Atualizar Cadastro do Aluno'
+                                : 'Acessar Cadastro do Aluno'}
+                            </span>
                           </>
                         )}
                       </button>
@@ -1666,10 +2013,38 @@ export default function App() {
 
                   {/* Grupo 1: RG e CPF */}
                   <div>
-                    <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider mb-3">RG e CPF</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                      <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider">RG e CPF</h4>
+                      <label className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-[#0f254e] bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 px-3 py-1.5 rounded-xl cursor-pointer select-none transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={formData.possuiCin}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setFormData(prev => ({
+                              ...prev,
+                              possuiCin: checked,
+                              ...(checked ? { rg: '', rgDigit: '', rgUf: '', rgOrgao: '', rgDate: '' } : {})
+                            }));
+                          }}
+                          className="w-4 h-4 rounded text-[#3b5998] focus:ring-[#3b5998] cursor-pointer"
+                        />
+                        <span>Aluno possui apenas CIN (Carteira de Identidade Nacional - sem RG)</span>
+                      </label>
+                    </div>
+
+                    {formData.possuiCin && (
+                      <div className="mb-4 p-3 bg-blue-100/60 border border-blue-300 rounded-xl text-xs text-blue-950 font-medium flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-700 shrink-0" />
+                        <span>Na Carteira de Identidade Nacional (CIN), o número único de identificação é o <strong>CPF</strong>. Os campos de RG estadual abaixo estão dispensados.</span>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                       <div className="space-y-2 md:col-span-4">
-                        <label className="text-sm font-semibold text-gray-700">CPF</label>
+                        <label className="text-sm font-semibold text-gray-700">
+                          CPF {formData.possuiCin && <span className="text-xs text-blue-600 font-bold">(Número da Identidade CIN)</span>}
+                        </label>
                         <input
                           type="text"
                           value={formData.cpf}
@@ -1679,54 +2054,89 @@ export default function App() {
                         />
                       </div>
                       <div className="space-y-2 md:col-span-3">
-                        <label className="text-sm font-semibold text-gray-700">RG</label>
+                        <label className="text-sm font-semibold text-gray-700">
+                          RG {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(Dispensado)</span>}
+                        </label>
                         <input
                           type="text"
-                          value={formData.rg}
+                          disabled={formData.possuiCin}
+                          value={formData.possuiCin ? '' : formData.rg}
                           onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
-                          placeholder="00.000.000"
-                          className={getFieldClass(formData.rg)}
+                          placeholder={formData.possuiCin ? "Dispensado (possui CIN)" : "00.000.000"}
+                          className={getFieldClass(
+                            formData.possuiCin ? '' : formData.rg,
+                            formData.possuiCin ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" : "",
+                            formData.possuiCin
+                          )}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-1">
-                        <label className="text-sm font-semibold text-gray-700">Dígito</label>
+                        <label className="text-sm font-semibold text-gray-700">
+                          Dígito {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(-)</span>}
+                        </label>
                         <input
                           type="text"
-                          value={formData.rgDigit}
+                          disabled={formData.possuiCin}
+                          value={formData.possuiCin ? '' : formData.rgDigit}
                           onChange={(e) => setFormData({ ...formData, rgDigit: e.target.value.toUpperCase() })}
-                          placeholder="X"
+                          placeholder={formData.possuiCin ? "-" : "X"}
                           maxLength={2}
-                          className={getFieldClass(formData.rgDigit, "px-3 text-center font-bold uppercase")}
+                          className={getFieldClass(
+                            formData.possuiCin ? '' : formData.rgDigit,
+                            cn("px-3 text-center font-bold uppercase", formData.possuiCin && "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"),
+                            formData.possuiCin
+                          )}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-1">
-                        <label className="text-sm font-semibold text-gray-700">UF RG</label>
+                        <label className="text-sm font-semibold text-gray-700">
+                          UF RG {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(-)</span>}
+                        </label>
                         <input
                           type="text"
-                          value={formData.rgUf}
+                          disabled={formData.possuiCin}
+                          value={formData.possuiCin ? '' : formData.rgUf}
                           onChange={(e) => setFormData({ ...formData, rgUf: e.target.value.toUpperCase() })}
-                          placeholder="SP"
+                          placeholder={formData.possuiCin ? "-" : "SP"}
                           maxLength={2}
-                          className={getFieldClass(formData.rgUf, "px-2 text-center uppercase font-bold")}
+                          className={getFieldClass(
+                            formData.possuiCin ? '' : formData.rgUf,
+                            cn("px-2 text-center uppercase font-bold", formData.possuiCin && "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"),
+                            formData.possuiCin
+                          )}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-3">
-                        <label className="text-sm font-semibold text-gray-700">Órgão Emissor</label>
+                        <label className="text-sm font-semibold text-gray-700">
+                          Órgão Emissor {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(Dispensado)</span>}
+                        </label>
                         <input
                           type="text"
-                          value={formData.rgOrgao}
+                          disabled={formData.possuiCin}
+                          value={formData.possuiCin ? '' : formData.rgOrgao}
                           onChange={(e) => setFormData({ ...formData, rgOrgao: e.target.value.toUpperCase() })}
-                          placeholder="Ex: SSP, Policia Civil"
-                          className={getFieldClass(formData.rgOrgao, "uppercase")}
+                          placeholder={formData.possuiCin ? "Dispensado" : "Ex: SSP, Policia Civil"}
+                          className={getFieldClass(
+                            formData.possuiCin ? '' : formData.rgOrgao,
+                            cn("uppercase", formData.possuiCin && "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"),
+                            formData.possuiCin
+                          )}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-4">
-                        <label className="text-sm font-semibold text-gray-700">Data de Emissão do RG</label>
+                        <label className="text-sm font-semibold text-gray-700">
+                          Data de Emissão do RG {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(Dispensado)</span>}
+                        </label>
                         <input
                           type="date"
-                          value={formData.rgDate ? formData.rgDate.split('T')[0] : ''}
+                          disabled={formData.possuiCin}
+                          value={formData.possuiCin ? '' : (formData.rgDate ? formData.rgDate.split('T')[0] : '')}
                           onChange={(e) => setFormData({ ...formData, rgDate: e.target.value })}
-                          className={getFieldClass(formData.rgDate)}
+                          className={getFieldClass(
+                            formData.possuiCin ? '' : formData.rgDate,
+                            formData.possuiCin ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" : "",
+                            formData.possuiCin
+                          )}
                         />
                       </div>
                     </div>
@@ -2086,7 +2496,7 @@ export default function App() {
                               type="tel"
                               value={formData.motherPhone}
                               onChange={(e) => {
-                                const val = e.target.value;
+                                const val = maskPhone(e.target.value);
                                 setFormData(prev => ({
                                   ...prev,
                                   motherPhone: val,
@@ -2123,7 +2533,7 @@ export default function App() {
                               type="tel"
                               disabled={motherSameWhatsapp}
                               value={motherSameWhatsapp ? formData.motherPhone : formData.motherWhatsapp}
-                              onChange={(e) => setFormData({ ...formData, motherWhatsapp: e.target.value })}
+                              onChange={(e) => setFormData({ ...formData, motherWhatsapp: maskPhone(e.target.value) })}
                               placeholder="(00) 00000-0000"
                               className={getFieldClass(
                                 motherSameWhatsapp ? formData.motherPhone : formData.motherWhatsapp,
@@ -2223,7 +2633,7 @@ export default function App() {
                               type="tel"
                               value={formData.fatherPhone}
                               onChange={(e) => {
-                                const val = e.target.value;
+                                const val = maskPhone(e.target.value);
                                 setFormData(prev => ({
                                   ...prev,
                                   fatherPhone: val,
@@ -2260,7 +2670,7 @@ export default function App() {
                               type="tel"
                               disabled={fatherSameWhatsapp}
                               value={fatherSameWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp}
-                              onChange={(e) => setFormData({ ...formData, fatherWhatsapp: e.target.value })}
+                              onChange={(e) => setFormData({ ...formData, fatherWhatsapp: maskPhone(e.target.value) })}
                               placeholder="(00) 00000-0000"
                               className={getFieldClass(
                                 fatherSameWhatsapp ? formData.fatherPhone : formData.fatherWhatsapp,
@@ -2355,7 +2765,7 @@ export default function App() {
                                   required={!isMotherMain && !isFatherMain}
                                   value={formData.guardianPhone}
                                   onChange={(e) => {
-                                    const val = e.target.value;
+                                    const val = maskPhone(e.target.value);
                                     setFormData(prev => ({
                                       ...prev,
                                       guardianPhone: val,
@@ -2393,7 +2803,7 @@ export default function App() {
                                   disabled={guardianSameWhatsapp}
                                   required={!isMotherMain && !isFatherMain && !guardianSameWhatsapp}
                                   value={guardianSameWhatsapp ? formData.guardianPhone : formData.guardianWhatsapp}
-                                  onChange={(e) => setFormData({ ...formData, guardianWhatsapp: e.target.value })}
+                                  onChange={(e) => setFormData({ ...formData, guardianWhatsapp: maskPhone(e.target.value) })}
                                   placeholder="(00) 00000-0000"
                                   className={getFieldClass(
                                     guardianSameWhatsapp ? formData.guardianPhone : formData.guardianWhatsapp,
@@ -2424,6 +2834,179 @@ export default function App() {
                         </motion.div>
                       )}
                     </AnimatePresence>
+
+                    {/* 4. Outros Contatos / Telefones de Emergência Adicionais (Sem ser Mãe, Pai ou Responsável) */}
+                    <div className="bg-slate-50/80 p-5 sm:p-6 rounded-xl border border-slate-200 mt-4 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                        <div>
+                          <h4 className="font-bold text-[#3b5998] flex items-center gap-2 text-sm sm:text-base">
+                            <Users className="w-4 h-4" />
+                            Outros Contatos e Pessoas Autorizadas
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Adicione outros contatos para avisos ou emergências (avós, tios, vizinhos, cuidadores).
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newContact: AdditionalContact = {
+                              id: Date.now().toString(),
+                              name: '',
+                              relationship: '',
+                              phone: '',
+                              whatsapp: '',
+                              sameWhatsapp: true
+                            };
+                            setFormData(prev => ({
+                              ...prev,
+                              additionalContacts: [...(prev.additionalContacts || []), newContact]
+                            }));
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#3b5998] hover:bg-[#2d4373] text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer self-start sm:self-center shrink-0"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Adicionar Outro Contato</span>
+                        </button>
+                      </div>
+
+                      {(!formData.additionalContacts || formData.additionalContacts.length === 0) ? (
+                        <div className="text-center py-6 text-gray-400 text-xs sm:text-sm border border-dashed border-gray-300 rounded-lg bg-white/50">
+                          Nenhum contato adicional incluído. Clique no botão acima para adicionar pessoas de apoio / emergência.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {formData.additionalContacts.map((contact, index) => (
+                            <div key={contact.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative">
+                              <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                                <span className="text-xs font-bold text-[#0f254e] uppercase tracking-wider flex items-center gap-1.5">
+                                  <User className="w-3.5 h-3.5 text-[#3b5998]" />
+                                  Contato Adicional #{index + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      additionalContacts: prev.additionalContacts.filter(c => c.id !== contact.id)
+                                    }));
+                                  }}
+                                  className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Remover</span>
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                <div className="space-y-1 md:col-span-4">
+                                  <label className="text-xs font-semibold text-gray-600">Nome Completo</label>
+                                  <input
+                                    type="text"
+                                    placeholder="Nome da pessoa"
+                                    value={contact.name}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        additionalContacts: prev.additionalContacts.map(c =>
+                                          c.id === contact.id ? { ...c, name: val } : c
+                                        )
+                                      }));
+                                    }}
+                                    className={getFieldClass(contact.name, "py-2 text-sm")}
+                                  />
+                                </div>
+
+                                <div className="space-y-1 md:col-span-3">
+                                  <label className="text-xs font-semibold text-gray-600">Vínculo / Parentesco</label>
+                                  <input
+                                    type="text"
+                                    placeholder="Ex: Avó, Tio, Vizinho(a), Padrinho"
+                                    value={contact.relationship}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        additionalContacts: prev.additionalContacts.map(c =>
+                                          c.id === contact.id ? { ...c, relationship: val } : c
+                                        )
+                                      }));
+                                    }}
+                                    className={getFieldClass(contact.relationship, "py-2 text-sm")}
+                                  />
+                                </div>
+
+                                <div className="space-y-1 md:col-span-2">
+                                  <label className="text-xs font-semibold text-gray-600">Telefone</label>
+                                  <input
+                                    type="tel"
+                                    placeholder="(00) 00000-0000"
+                                    value={contact.phone}
+                                    onChange={(e) => {
+                                      const val = maskPhone(e.target.value);
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        additionalContacts: prev.additionalContacts.map(c =>
+                                          c.id === contact.id
+                                            ? { ...c, phone: val, whatsapp: c.sameWhatsapp ? val : c.whatsapp }
+                                            : c
+                                        )
+                                      }));
+                                    }}
+                                    className={getFieldClass(contact.phone, "py-2 text-sm")}
+                                  />
+                                </div>
+
+                                <div className="space-y-1 md:col-span-3">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-xs font-semibold text-gray-600">WhatsApp</label>
+                                    <label className="inline-flex items-center gap-1 text-[11px] text-[#3b5998] font-semibold cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={contact.sameWhatsapp}
+                                        onChange={(e) => {
+                                          const chk = e.target.checked;
+                                          setFormData(prev => ({
+                                            ...prev,
+                                            additionalContacts: prev.additionalContacts.map(c =>
+                                              c.id === contact.id
+                                                ? { ...c, sameWhatsapp: chk, whatsapp: chk ? c.phone : c.whatsapp }
+                                                : c
+                                            )
+                                          }));
+                                        }}
+                                        className="w-3 h-3 text-[#3b5998] rounded cursor-pointer"
+                                      />
+                                      <span>Mesmo do tel</span>
+                                    </label>
+                                  </div>
+                                  <input
+                                    type="tel"
+                                    placeholder="(00) 00000-0000"
+                                    disabled={contact.sameWhatsapp}
+                                    value={contact.sameWhatsapp ? contact.phone : contact.whatsapp}
+                                    onChange={(e) => {
+                                      const val = maskPhone(e.target.value);
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        additionalContacts: prev.additionalContacts.map(c =>
+                                          c.id === contact.id ? { ...c, whatsapp: val } : c
+                                        )
+                                      }));
+                                    }}
+                                    className={getFieldClass(
+                                      contact.sameWhatsapp ? contact.phone : contact.whatsapp,
+                                      cn("py-2 text-sm", contact.sameWhatsapp && "bg-gray-100 text-gray-500 cursor-not-allowed")
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </section>
 
@@ -2495,15 +3078,15 @@ export default function App() {
               <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
                 <CheckCircle2 className="text-green-500 w-10 h-10 sm:w-12 sm:h-12" />
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Cadastro Concluído!</h2>
-              <p className="text-gray-500 mt-3 text-sm sm:text-base max-w-sm mx-auto">
-                As informações foram enviadas com sucesso para a secretaria da escola.
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Cadastro Salvo com Sucesso!</h2>
+              <p className="text-gray-600 mt-3 text-sm sm:text-base max-w-sm mx-auto">
+                As informações foram salvas no sistema e sincronizadas com a Central de Divergências EOL. O aluno permanece na lista (marcado em verde) para futuras consultas ou novas alterações.
               </p>
               <button
                 onClick={() => setIsSuccess(false)}
-                className="mt-6 px-8 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all text-sm sm:text-base"
+                className="mt-6 px-8 py-3 bg-[#3b5998] hover:bg-[#2d4373] text-white font-bold rounded-xl transition-all text-sm sm:text-base shadow-md cursor-pointer"
               >
-                Voltar ao Início
+                Voltar para a Lista de Alunos
               </button>
             </motion.div>
           )}

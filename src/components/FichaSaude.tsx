@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, RotateCcw, PenLine } from 'lucide-react';
+import { Save, Printer, ArrowLeft, Loader2, CheckCircle2, Settings, X, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, RotateCcw, PenLine, ArrowRight, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { FichaSaudeData, initialFichaSaudeData } from '../types/saude';
 import { Student } from '../types';
-import { cn } from '../lib/utils';
+import { cn, maskPhone } from '../lib/utils';
 
 interface FichaSaudeProps {
   student: Student;
   onBack: () => void;
+  onOpenFichaE?: () => void;
   isEditMode?: boolean;
 }
 
@@ -104,7 +105,7 @@ export const UBS_BUTANTA_LIST = [
   'UBS Vila Regina'
 ];
 
-export default function FichaSaude({ student, onBack, isEditMode = false }: FichaSaudeProps) {
+export default function FichaSaude({ student, onBack, onOpenFichaE, isEditMode = false }: FichaSaudeProps) {
   const [printConfig, setPrintConfig] = useState<PrintConfig>(() => {
     const saved = localStorage.getItem('@PortalTarsila:FichaSaudeB_PrintConfig');
     if (saved) {
@@ -319,7 +320,10 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
         })
         .eq('id_aluno', student.id);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        onBack();
+      }, 1200);
     } catch (error) {
       console.error('Error saving ficha de saude:', error);
       alert('Erro ao salvar os dados.');
@@ -839,7 +843,7 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
                       placeholder="Telefone do Contato 1"
                       className={getSaudeFieldClass(formData.q15_emergencia_tel_1)}
                       value={formData.q15_emergencia_tel_1}
-                      onChange={e => setFormData({ ...formData, q15_emergencia_tel_1: e.target.value })}
+                      onChange={e => setFormData({ ...formData, q15_emergencia_tel_1: maskPhone(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -884,7 +888,7 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
                       placeholder="Telefone do Contato 2"
                       className={getSaudeFieldClass(formData.q15_emergencia_tel_2)}
                       value={formData.q15_emergencia_tel_2}
-                      onChange={e => setFormData({ ...formData, q15_emergencia_tel_2: e.target.value })}
+                      onChange={e => setFormData({ ...formData, q15_emergencia_tel_2: maskPhone(e.target.value) })}
                     />
                   </div>
                 </div>
@@ -1019,6 +1023,34 @@ export default function FichaSaude({ student, onBack, isEditMode = false }: Fich
           </div>
 
         
+          {/* Card / Botão Ficha de Saúde E quando Questão 7 for SIM */}
+          {formData.q7_deficiencia && onOpenFichaE && (
+            <div className="p-4 sm:p-5 bg-purple-50 border-2 border-purple-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 bg-purple-100 text-purple-700 rounded-xl shrink-0">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-purple-950 text-sm sm:text-base">
+                    Estudante Público-Alvo da Educação Especial (Questão 7)
+                  </h4>
+                  <p className="text-xs text-purple-800 mt-0.5">
+                    Foi selecionado "Sim" na Questão 7 (Deficiência). Preencha as Informações Complementares na <strong>Ficha de Saúde E</strong> (AEE / CEFAI).
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenFichaE}
+                className="w-full sm:w-auto px-5 py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Preencher Ficha de Saúde E</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Alerta de salvamento no fim do formulário */}
           {saveSuccess && (
             <div className="bg-green-100 border border-green-300 text-green-800 p-4 rounded-xl text-center text-sm font-bold flex justify-center items-center gap-2 print:hidden shadow-sm">

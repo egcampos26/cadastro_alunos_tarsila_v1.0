@@ -7,6 +7,23 @@ export interface SiblingInfo {
   birthDate?: string;
 }
 
+export interface AdditionalContact {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  whatsapp: string;
+  sameWhatsapp: boolean;
+}
+
+export interface CampoModificadoEol {
+  campo: string;
+  valor: string;
+  valorAnterior?: string;
+  categoria?: string;
+  acao?: 'alterado' | 'apagado' | 'adicionado';
+}
+
 export interface Student {
   id: string; // This will map to id_aluno
   name: string;
@@ -18,6 +35,7 @@ export interface Student {
   cpf?: string;
   rg?: string;
   rgDigit?: string;
+  possuiCin?: boolean;
   guardianName?: string;
   guardianCpf?: string;
   guardianPhone?: string;
@@ -33,6 +51,7 @@ export interface Student {
   fatherPhone?: string;
   fatherWhatsapp?: string;
   fatherEmail?: string;
+  additionalContacts?: AdditionalContact[];
   cep?: string;
   street?: string;
   number?: string;
