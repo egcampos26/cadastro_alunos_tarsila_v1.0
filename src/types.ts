@@ -64,4 +64,7 @@ export interface Student {
   lastUpdated?: string;
   id_familia?: string | null;
   siblings?: SiblingInfo[];
+  dvaStatus?: 'Em Dia' | 'Em Atraso' | 'Pendente' | string;
+  dvaDataRetorno?: string;
+  dvaAtualizacao?: string;
 }

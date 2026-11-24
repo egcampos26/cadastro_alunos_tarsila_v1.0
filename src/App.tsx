@@ -3,7 +3,7 @@ import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
 import { Student, SiblingInfo, AdditionalContact, CampoModificadoEol } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown, Plus, Trash2, ArrowRight, Clock } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, AlertTriangle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown, Plus, Trash2, ArrowRight, Clock } from 'lucide-react';
 import { cn, maskPhone } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
 import FichaSaudeE from './components/FichaSaudeE';
@@ -753,7 +753,8 @@ export default function App() {
           ALUNOS_MATRICULAS (*),
           ALUNOS_CONTATOS (*),
           ALUNOS_DADOS_SAUDE (*),
-          ALUNOS_RESPONSAVEL (*)
+          ALUNOS_RESPONSAVEL (*),
+          ALUNOS_VACINACAO (*)
         `)
         .eq('id_aluno', studentId)
         .single();
@@ -944,6 +945,29 @@ export default function App() {
 
       const respStreetFromDb = [respRecord.logradouro_responsavel_aluno, respRecord.endereco_responsavel_aluno].filter(Boolean).join(' ') || respRecord.endereco_responsavel_aluno || '';
 
+      // Dados de Vacinação e Situação do DVA
+      const vacRecords = Array.isArray(matched.ALUNOS_VACINACAO)
+        ? matched.ALUNOS_VACINACAO
+        : (matched.ALUNOS_VACINACAO ? [matched.ALUNOS_VACINACAO] : []);
+      let vacinacao = vacRecords[0] || null;
+
+      if (!vacinacao && matched.cod_eol_aluno) {
+        try {
+          const { data: vacByEol } = await supabase
+            .from('ALUNOS_VACINACAO')
+            .select('*')
+            .eq('cod_eol', matched.cod_eol_aluno)
+            .maybeSingle();
+          if (vacByEol) vacinacao = vacByEol;
+        } catch (vacErr) {
+          console.warn('Erro ao buscar vacinação por cod_eol:', vacErr);
+        }
+      }
+
+      const dvaStatus = (vacinacao?.situacao_vacinacao || 'Pendente').trim();
+      const dvaDataRetorno = (vacinacao?.data_retorno_dva || '').trim();
+      const dvaAtualizacao = (vacinacao?.atualizacao_operador_data || '').trim();
+
       const mappedStudent: Student = {
         id: matched.id_aluno.toString(),
         name: matched.nome_aluno,
@@ -981,7 +1005,10 @@ export default function App() {
         state: addressState,
         healthInfo: '',
         id_familia: matched.id_familia || null,
-        siblings: loadedSiblings
+        siblings: loadedSiblings,
+        dvaStatus: dvaStatus,
+        dvaDataRetorno: dvaDataRetorno,
+        dvaAtualizacao: dvaAtualizacao
       };
 
       setFoundStudent(mappedStudent);
@@ -1901,20 +1928,74 @@ export default function App() {
                   <h2 className="text-2xl md:text-3xl font-black text-white mt-1 uppercase text-center">{foundStudent.name}</h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center shadow-sm backdrop-blur-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-6">
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 sm:p-4 text-center shadow-sm backdrop-blur-sm flex flex-col justify-center min-h-[92px]">
                     <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider block mb-1">Ano/Turma</span>
-                    <span className="text-xl font-black text-white">{foundStudent.class || '-'}</span>
+                    <span className="text-lg sm:text-xl font-black text-white">{foundStudent.class || '-'}</span>
                   </div>
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center shadow-sm backdrop-blur-sm">
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 sm:p-4 text-center shadow-sm backdrop-blur-sm flex flex-col justify-center min-h-[92px]">
                     <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider block mb-1">Período</span>
-                    <span className="text-xl font-black text-white">{foundStudent.period || '-'}</span>
+                    <span className="text-lg sm:text-xl font-black text-white">{foundStudent.period || '-'}</span>
                   </div>
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center shadow-sm backdrop-blur-sm">
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 sm:p-4 text-center shadow-sm backdrop-blur-sm flex flex-col justify-center min-h-[92px]">
                     <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider block mb-1">Data de Nascimento</span>
-                    <span className="text-xl font-black text-white">
+                    <span className="text-lg sm:text-xl font-black text-white">
                       {foundStudent.birthDate ? new Date(foundStudent.birthDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
                     </span>
+                  </div>
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-3 sm:p-4 text-center shadow-sm backdrop-blur-sm flex flex-col items-center justify-center min-h-[92px]">
+                    <span className="text-white/80 text-[10px] font-bold uppercase tracking-wider block mb-1">Status DVA (Vacina)</span>
+                    {(() => {
+                      const status = (foundStudent.dvaStatus || '').toLowerCase();
+                      const isEmDia = status.includes('dia');
+                      const isEmAtraso = status.includes('atraso');
+
+                      if (isEmDia) {
+                        return (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white shadow-sm tracking-wide">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-white" />
+                              EM DIA
+                            </span>
+                            {foundStudent.dvaDataRetorno ? (
+                              <span className="text-[10px] font-semibold text-emerald-200 mt-1">
+                                Retorno: {foundStudent.dvaDataRetorno}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-white/70 mt-1">Regular</span>
+                            )}
+                          </div>
+                        );
+                      } else if (isEmAtraso) {
+                        return (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-sm tracking-wide">
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-white" />
+                              EM ATRASO
+                            </span>
+                            {foundStudent.dvaDataRetorno ? (
+                              <span className="text-[10px] font-semibold text-rose-200 mt-1">
+                                Retorno: {foundStudent.dvaDataRetorno}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-white/70 mt-1">Irregular</span>
+                            )}
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-white shadow-sm tracking-wide">
+                              <Clock className="w-3.5 h-3.5 shrink-0 text-white" />
+                              {foundStudent.dvaStatus ? foundStudent.dvaStatus.toUpperCase() : 'PENDENTE'}
+                            </span>
+                            <span className="text-[10px] text-white/70 mt-1">
+                              {foundStudent.dvaDataRetorno ? `Retorno: ${foundStudent.dvaDataRetorno}` : 'Não entregue'}
+                            </span>
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               </div>
