@@ -24,6 +24,13 @@ export interface CampoModificadoEol {
   acao?: 'alterado' | 'apagado' | 'adicionado';
 }
 
+export interface DocumentoEntregueConfig {
+  id?: number;
+  campo_banco: string;
+  rotulo: string;
+  ordem?: number;
+}
+
 export interface Student {
   id: string; // This will map to id_aluno
   name: string;
@@ -67,4 +74,5 @@ export interface Student {
   dvaStatus?: 'Em Dia' | 'Em Atraso' | 'Pendente' | string;
   dvaDataRetorno?: string;
   dvaAtualizacao?: string;
+  documentosEntregues?: Record<string, boolean>;
 }

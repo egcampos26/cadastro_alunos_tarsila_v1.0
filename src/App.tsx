@@ -1,9 +1,9 @@
 import React, { useState, useEffect, FormEvent, Component, ErrorInfo, ReactNode } from 'react';
 import logoEmef from './assets/logo-emef.png';
 import { supabase } from './lib/supabase';
-import { Student, SiblingInfo, AdditionalContact, CampoModificadoEol } from './types';
+import { Student, SiblingInfo, AdditionalContact, CampoModificadoEol, DocumentoEntregueConfig } from './types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, AlertTriangle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown, Plus, Trash2, ArrowRight, Clock } from 'lucide-react';
+import { Search, User, Users, Phone, Mail, MapPin, Activity, CheckCircle2, AlertCircle, AlertTriangle, Loader2, Calendar, FileText, Settings, Lock, Eye, EyeOff, LogIn, LogOut, GraduationCap, ChevronDown, Plus, Trash2, ArrowRight, Clock, FileCheck, X } from 'lucide-react';
 import { cn, maskPhone } from './lib/utils';
 import FichaSaude from './components/FichaSaude';
 import FichaSaudeE from './components/FichaSaudeE';
@@ -127,6 +127,8 @@ const initialFormData = {
   birthDate: '',
   gender: '',
   race: '',
+  // Documentos Físicos Entregues
+  documentosEntregues: {} as Record<string, boolean>,
   // Documentos do Aluno (ALUNOS_DOCUMENTOS)
   possuiCin: false,
   cpf: '',
@@ -509,6 +511,70 @@ export default function App() {
   const [guardianSameWhatsapp, setGuardianSameWhatsapp] = useState(true);
   const [siblings, setSiblings] = useState<SiblingInfo[]>([]);
   const [currentView, setCurrentView] = useState<'main' | 'saude' | 'saudeE'>('main');
+
+  // Configuração e Modal de Documentos Entregues
+  const [docsConfig, setDocsConfig] = useState<DocumentoEntregueConfig[]>([
+    { campo_banco: 'foto_3x4_aluno', rotulo: 'Foto 3x4', ordem: 1 },
+    { campo_banco: 'copia_cert_nascimento_aluno', rotulo: 'Certidão de Nascimento', ordem: 2 },
+    { campo_banco: 'copia_rg_aluno_atualizado', rotulo: 'RG Aluno Atualizado', ordem: 3 },
+    { campo_banco: 'copia_rg_cpf_responsavel_aluno', rotulo: 'RG e CPF Responsável', ordem: 4 },
+    { campo_banco: 'copia_comprovante_endereco_aluno', rotulo: 'Comprovante de Endereço', ordem: 5 },
+    { campo_banco: 'copia_carteira_vacinacao_aluno', rotulo: 'Carteira de Vacinação', ordem: 6 },
+    { campo_banco: 'copia_cartao_sus_aluno', rotulo: 'Cartão do SUS', ordem: 7 },
+    { campo_banco: 'copia_dva_aluno', rotulo: 'DVA', ordem: 8 }
+  ]);
+  const [isAddDocModalOpen, setIsAddDocModalOpen] = useState(false);
+  const [newDocLabel, setNewDocLabel] = useState('');
+  const [isAddingDoc, setIsAddingDoc] = useState(false);
+
+  const fetchDocsConfig = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('CONFIG_DOCUMENTOS_ENTREGUES')
+        .select('*')
+        .order('ordem', { ascending: true });
+      if (!error && data && data.length > 0) {
+        setDocsConfig(data);
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar configurações de documentos entregues:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDocsConfig();
+  }, []);
+
+  const handleAddNewDocField = async () => {
+    const label = newDocLabel.trim();
+    if (!label) return;
+    setIsAddingDoc(true);
+    try {
+      const { data, error } = await supabase.rpc('adicionar_campo_documento_entregue', {
+        p_rotulo: label
+      });
+      if (error) throw error;
+      
+      const newFieldKey = data?.campo_banco;
+      await fetchDocsConfig();
+      if (newFieldKey) {
+        setFormData(prev => ({
+          ...prev,
+          documentosEntregues: {
+            ...prev.documentosEntregues,
+            [newFieldKey]: true
+          }
+        }));
+      }
+      setIsAddDocModalOpen(false);
+      setNewDocLabel('');
+    } catch (err: any) {
+      console.error('Erro ao adicionar campo de documento:', err);
+      alert('Erro ao adicionar novo campo: ' + (err.message || 'Erro desconhecido'));
+    } finally {
+      setIsAddingDoc(false);
+    }
+  };
   const [isEditMode, setIsEditMode] = useState<boolean>(() => {
     return localStorage.getItem('@PortalTarsila:EditMode') === 'true';
   });
@@ -968,6 +1034,17 @@ export default function App() {
       const dvaDataRetorno = (vacinacao?.data_retorno_dva || '').trim();
       const dvaAtualizacao = (vacinacao?.atualizacao_operador_data || '').trim();
 
+      // Documentos físicos entregues
+      const loadedDocumentosEntregues: Record<string, boolean> = {};
+      Object.keys(documentos).forEach(key => {
+        if (key.startsWith('copia_') || key.startsWith('foto_')) {
+          const val = documentos[key];
+          loadedDocumentosEntregues[key] = typeof val === 'string'
+            ? ['SIM', 'SIM ', 'S', 'TRUE', 'OK'].includes(val.trim().toUpperCase())
+            : Boolean(val);
+        }
+      });
+
       const mappedStudent: Student = {
         id: matched.id_aluno.toString(),
         name: matched.nome_aluno,
@@ -1008,7 +1085,8 @@ export default function App() {
         siblings: loadedSiblings,
         dvaStatus: dvaStatus,
         dvaDataRetorno: dvaDataRetorno,
-        dvaAtualizacao: dvaAtualizacao
+        dvaAtualizacao: dvaAtualizacao,
+        documentosEntregues: loadedDocumentosEntregues
       };
 
       setFoundStudent(mappedStudent);
@@ -1021,6 +1099,7 @@ export default function App() {
         birthDate: birthDate,
         gender: normalizeGender(dadosGerais.genero_aluno),
         race: normalizeRace(dadosGerais.raca_aluno),
+        documentosEntregues: loadedDocumentosEntregues,
         possuiCin: studentPossuiCin,
         cpf: documentos.cpf_aluno || '',
         rg: studentRg,
@@ -1246,6 +1325,13 @@ export default function App() {
       if (errorGerais) throw errorGerais;
 
       // 3. Upsert ALUNOS_DOCUMENTOS
+      const docsEntreguesPayload: Record<string, any> = {};
+      if (formData.documentosEntregues) {
+        Object.entries(formData.documentosEntregues).forEach(([campo, entregue]) => {
+          docsEntreguesPayload[campo] = entregue ? 'SIM' : null;
+        });
+      }
+
       const { error: errorDocs } = await supabase
         .from('ALUNOS_DOCUMENTOS')
         .upsert({
@@ -1271,6 +1357,7 @@ export default function App() {
           certidao_nasc_dt_emissao_aluno: formData.certidaoDataEmissao || null,
           nis_aluno: formData.nis || null,
           cns_sus_aluno: formData.cnsSus || null,
+          ...docsEntreguesPayload
         }, { onConflict: 'id_aluno' });
 
       if (errorDocs) throw errorDocs;
@@ -2039,6 +2126,77 @@ export default function App() {
                     </div>
                   </div>
                 )}
+
+                {/* Seção: Cópias dos Documentos Entregues */}
+                <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-slate-200/90 rounded-2xl p-5 sm:p-6 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-100/80 text-[#3b5998] flex items-center justify-center font-bold shrink-0 shadow-xs">
+                        <FileCheck className="w-5 h-5 text-[#3b5998]" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-slate-800 tracking-tight">
+                            Cópias dos Documentos Entregues
+                          </h3>
+                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#3b5998]">
+                            {Object.values(formData.documentosEntregues || {}).filter(Boolean).length} de {docsConfig.length} entregues
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Assinale as cópias físicas entregues pelo responsável na secretaria escolar
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setIsAddDocModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#3b5998] bg-white hover:bg-blue-50/80 border border-blue-200 shadow-xs transition-colors cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-4 h-4 text-[#3b5998]" />
+                      <span>Acrescentar Campo</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    {docsConfig.map(doc => {
+                      const isChecked = Boolean(formData.documentosEntregues?.[doc.campo_banco]);
+                      return (
+                        <label
+                          key={doc.campo_banco}
+                          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${
+                            isChecked
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold shadow-xs'
+                              : 'bg-white hover:bg-slate-100/70 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setFormData(prev => ({
+                                ...prev,
+                                documentosEntregues: {
+                                  ...prev.documentosEntregues,
+                                  [doc.campo_banco]: checked
+                                }
+                              }));
+                            }}
+                            className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                          <span className="text-xs tracking-tight leading-tight flex-1">
+                            {doc.rotulo}
+                          </span>
+                          {isChecked && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Aluno Info */}
                 <section>
@@ -3178,6 +3336,97 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Modal de Confirmação para Adicionar Novo Campo de Documento */}
+        {isAddDocModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in duration-150">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#3b5998] flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-[#3b5998]" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800">Acrescentar Campo de Documento</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddDocModalOpen(false);
+                    setNewDocLabel('');
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Informe o nome do novo documento a ser entregue. Ao confirmar, o sistema criará a respectiva coluna na tabela <strong className="font-mono text-slate-800">ALUNOS_DOCUMENTOS</strong> do banco de dados e adicionará a opção a todos os alunos.
+                </p>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Nome do Documento / Cópia:
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={newDocLabel}
+                    onChange={(e) => setNewDocLabel(e.target.value)}
+                    placeholder="Ex: Declaração de Transferência"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-[#3b5998] focus:ring-2 focus:ring-blue-100 outline-none text-sm text-slate-800"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddNewDocField();
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    Esta ação adiciona uma nova coluna permanente no banco de dados. Tenha certeza do nome do documento.
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={isAddingDoc}
+                  onClick={() => {
+                    setIsAddDocModalOpen(false);
+                    setNewDocLabel('');
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isAddingDoc || !newDocLabel.trim()}
+                  onClick={handleAddNewDocField}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#3b5998] hover:bg-[#2d4373] shadow-sm disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isAddingDoc ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Adicionando ao Banco...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Confirmar e Adicionar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
       )}
 
