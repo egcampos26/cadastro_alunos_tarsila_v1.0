@@ -1023,11 +1023,11 @@ export default function App() {
         race: normalizeRace(dadosGerais.raca_aluno),
         possuiCin: studentPossuiCin,
         cpf: documentos.cpf_aluno || '',
-        rg: studentPossuiCin ? '' : studentRg,
-        rgDigit: studentPossuiCin ? '' : studentRgDigit,
-        rgUf: studentPossuiCin ? '' : studentRgUf,
-        rgOrgao: studentPossuiCin ? '' : studentRgOrgao,
-        rgDate: studentPossuiCin ? '' : studentRgDate,
+        rg: studentRg,
+        rgDigit: studentRgDigit,
+        rgUf: studentRgUf,
+        rgOrgao: studentRgOrgao,
+        rgDate: studentRgDate,
         rne: studentRne,
         certidaoTipo: documentos.tipo_certidao_civil_aluno || 'Certidão de Nascimento',
         certidaoModelo: certModelo,
@@ -1256,7 +1256,7 @@ export default function App() {
           rg_digito_aluno: formData.possuiCin ? null : (formData.rgDigit || null),
           rg_uf_aluno: formData.possuiCin ? null : (formData.rgUf || null),
           rg_orgao_emissao_aluno: formData.possuiCin ? null : (formData.rgOrgao || null),
-          rg_data_emissao_aluno: formData.possuiCin ? null : (formData.rgDate || null),
+          rg_data_emissao_aluno: formData.rgDate || null,
           rne_aluno: formData.rne || null,
           tipo_certidao_civil_aluno: formData.certidaoTipo || 'Certidão de Nascimento',
           certidao_nasc_modelo_aluno: formData.certidaoModelo || 'Novo',
@@ -2095,7 +2095,9 @@ export default function App() {
                   {/* Grupo 1: RG e CPF */}
                   <div>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                      <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider">RG e CPF</h4>
+                      <h4 className="text-sm font-bold text-[#3b5998] uppercase tracking-wider">
+                        {formData.possuiCin ? 'CPF e CIN' : 'RG e CPF'}
+                      </h4>
                       <label className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-[#0f254e] bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 px-3 py-1.5 rounded-xl cursor-pointer select-none transition-colors">
                         <input
                           type="checkbox"
@@ -2104,8 +2106,7 @@ export default function App() {
                             const checked = e.target.checked;
                             setFormData(prev => ({
                               ...prev,
-                              possuiCin: checked,
-                              ...(checked ? { rg: '', rgDigit: '', rgUf: '', rgOrgao: '', rgDate: '' } : {})
+                              possuiCin: checked
                             }));
                           }}
                           className="w-4 h-4 rounded text-[#3b5998] focus:ring-[#3b5998] cursor-pointer"
@@ -2114,113 +2115,118 @@ export default function App() {
                       </label>
                     </div>
 
-                    {formData.possuiCin && (
-                      <div className="mb-4 p-3 bg-blue-100/60 border border-blue-300 rounded-xl text-xs text-blue-950 font-medium flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-blue-700 shrink-0" />
-                        <span>Na Carteira de Identidade Nacional (CIN), o número único de identificação é o <strong>CPF</strong>. Os campos de RG estadual abaixo estão dispensados.</span>
+                    {formData.possuiCin ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            CPF
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.cpf}
+                            onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                            placeholder="000.000.000-00"
+                            className={getFieldClass(formData.cpf)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Data de Emissão do CIN
+                          </label>
+                          <input
+                            type="date"
+                            value={formData.rgDate ? formData.rgDate.split('T')[0] : ''}
+                            onChange={(e) => setFormData({ ...formData, rgDate: e.target.value })}
+                            className={getFieldClass(formData.rgDate)}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div className="space-y-2 md:col-span-4">
+                          <label className="text-sm font-semibold text-gray-700">
+                            CPF
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.cpf}
+                            onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                            placeholder="000.000.000-00"
+                            className={getFieldClass(formData.cpf)}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-3">
+                          <label className="text-sm font-semibold text-gray-700">
+                            RG
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.rg}
+                            onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
+                            placeholder="00.000.000"
+                            className={getFieldClass(formData.rg)}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-1">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Dígito
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.rgDigit}
+                            onChange={(e) => setFormData({ ...formData, rgDigit: e.target.value.toUpperCase() })}
+                            placeholder="X"
+                            maxLength={2}
+                            className={getFieldClass(
+                              formData.rgDigit,
+                              "px-3 text-center font-bold uppercase"
+                            )}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-1">
+                          <label className="text-sm font-semibold text-gray-700">
+                            UF RG
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.rgUf}
+                            onChange={(e) => setFormData({ ...formData, rgUf: e.target.value.toUpperCase() })}
+                            placeholder="SP"
+                            maxLength={2}
+                            className={getFieldClass(
+                              formData.rgUf,
+                              "px-2 text-center uppercase font-bold"
+                            )}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-3">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Órgão Emissor
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.rgOrgao}
+                            onChange={(e) => setFormData({ ...formData, rgOrgao: e.target.value.toUpperCase() })}
+                            placeholder="Ex: SSP, Policia Civil"
+                            className={getFieldClass(
+                              formData.rgOrgao,
+                              "uppercase"
+                            )}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-4">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Data de Emissão do RG
+                          </label>
+                          <input
+                            type="date"
+                            value={formData.rgDate ? formData.rgDate.split('T')[0] : ''}
+                            onChange={(e) => setFormData({ ...formData, rgDate: e.target.value })}
+                            className={getFieldClass(formData.rgDate)}
+                          />
+                        </div>
                       </div>
                     )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                      <div className="space-y-2 md:col-span-4">
-                        <label className="text-sm font-semibold text-gray-700">
-                          CPF {formData.possuiCin && <span className="text-xs text-blue-600 font-bold">(Número da Identidade CIN)</span>}
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.cpf}
-                          onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                          placeholder="000.000.000-00"
-                          className={getFieldClass(formData.cpf)}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-3">
-                        <label className="text-sm font-semibold text-gray-700">
-                          RG {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(Dispensado)</span>}
-                        </label>
-                        <input
-                          type="text"
-                          disabled={formData.possuiCin}
-                          value={formData.possuiCin ? '' : formData.rg}
-                          onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
-                          placeholder={formData.possuiCin ? "Dispensado (possui CIN)" : "00.000.000"}
-                          className={getFieldClass(
-                            formData.possuiCin ? '' : formData.rg,
-                            formData.possuiCin ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" : "",
-                            formData.possuiCin
-                          )}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-1">
-                        <label className="text-sm font-semibold text-gray-700">
-                          Dígito {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(-)</span>}
-                        </label>
-                        <input
-                          type="text"
-                          disabled={formData.possuiCin}
-                          value={formData.possuiCin ? '' : formData.rgDigit}
-                          onChange={(e) => setFormData({ ...formData, rgDigit: e.target.value.toUpperCase() })}
-                          placeholder={formData.possuiCin ? "-" : "X"}
-                          maxLength={2}
-                          className={getFieldClass(
-                            formData.possuiCin ? '' : formData.rgDigit,
-                            cn("px-3 text-center font-bold uppercase", formData.possuiCin && "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"),
-                            formData.possuiCin
-                          )}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-1">
-                        <label className="text-sm font-semibold text-gray-700">
-                          UF RG {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(-)</span>}
-                        </label>
-                        <input
-                          type="text"
-                          disabled={formData.possuiCin}
-                          value={formData.possuiCin ? '' : formData.rgUf}
-                          onChange={(e) => setFormData({ ...formData, rgUf: e.target.value.toUpperCase() })}
-                          placeholder={formData.possuiCin ? "-" : "SP"}
-                          maxLength={2}
-                          className={getFieldClass(
-                            formData.possuiCin ? '' : formData.rgUf,
-                            cn("px-2 text-center uppercase font-bold", formData.possuiCin && "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"),
-                            formData.possuiCin
-                          )}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-3">
-                        <label className="text-sm font-semibold text-gray-700">
-                          Órgão Emissor {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(Dispensado)</span>}
-                        </label>
-                        <input
-                          type="text"
-                          disabled={formData.possuiCin}
-                          value={formData.possuiCin ? '' : formData.rgOrgao}
-                          onChange={(e) => setFormData({ ...formData, rgOrgao: e.target.value.toUpperCase() })}
-                          placeholder={formData.possuiCin ? "Dispensado" : "Ex: SSP, Policia Civil"}
-                          className={getFieldClass(
-                            formData.possuiCin ? '' : formData.rgOrgao,
-                            cn("uppercase", formData.possuiCin && "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"),
-                            formData.possuiCin
-                          )}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-4">
-                        <label className="text-sm font-semibold text-gray-700">
-                          Data de Emissão do RG {formData.possuiCin && <span className="text-xs text-gray-400 font-normal">(Dispensado)</span>}
-                        </label>
-                        <input
-                          type="date"
-                          disabled={formData.possuiCin}
-                          value={formData.possuiCin ? '' : (formData.rgDate ? formData.rgDate.split('T')[0] : '')}
-                          onChange={(e) => setFormData({ ...formData, rgDate: e.target.value })}
-                          className={getFieldClass(
-                            formData.possuiCin ? '' : formData.rgDate,
-                            formData.possuiCin ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" : "",
-                            formData.possuiCin
-                          )}
-                        />
-                      </div>
-                    </div>
                   </div>
 
                   {/* Grupo 2: Certidão de Registro Civil */}
