@@ -129,6 +129,7 @@ const initialFormData = {
   race: '',
   // Documentos Físicos Entregues
   documentosEntregues: {} as Record<string, boolean>,
+  deveHistoricoOutraEscola: false,
   // Documentos do Aluno (ALUNOS_DOCUMENTOS)
   possuiCin: false,
   cpf: '',
@@ -1045,6 +1046,10 @@ export default function App() {
         }
       });
 
+      const studentDeveHistorico = typeof documentos.deve_historico_outra_escola === 'string'
+        ? ['SIM', 'SIM ', 'S', 'TRUE'].includes(documentos.deve_historico_outra_escola.trim().toUpperCase())
+        : Boolean(documentos.deve_historico_outra_escola);
+
       const mappedStudent: Student = {
         id: matched.id_aluno.toString(),
         name: matched.nome_aluno,
@@ -1086,7 +1091,8 @@ export default function App() {
         dvaStatus: dvaStatus,
         dvaDataRetorno: dvaDataRetorno,
         dvaAtualizacao: dvaAtualizacao,
-        documentosEntregues: loadedDocumentosEntregues
+        documentosEntregues: loadedDocumentosEntregues,
+        deveHistoricoOutraEscola: studentDeveHistorico
       };
 
       setFoundStudent(mappedStudent);
@@ -1100,6 +1106,7 @@ export default function App() {
         gender: normalizeGender(dadosGerais.genero_aluno),
         race: normalizeRace(dadosGerais.raca_aluno),
         documentosEntregues: loadedDocumentosEntregues,
+        deveHistoricoOutraEscola: studentDeveHistorico,
         possuiCin: studentPossuiCin,
         cpf: documentos.cpf_aluno || '',
         rg: studentRg,
@@ -1357,6 +1364,7 @@ export default function App() {
           certidao_nasc_dt_emissao_aluno: formData.certidaoDataEmissao || null,
           nis_aluno: formData.nis || null,
           cns_sus_aluno: formData.cnsSus || null,
+          deve_historico_outra_escola: formData.deveHistoricoOutraEscola ? 'SIM' : null,
           ...docsEntreguesPayload
         }, { onConflict: 'id_aluno' });
 
@@ -2195,6 +2203,45 @@ export default function App() {
                         </label>
                       );
                     })}
+                  </div>
+
+                  {/* Checkbox isolado: Deve histórico de outra escola */}
+                  <div className="mt-4 pt-3.5 border-t border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label
+                      className={`inline-flex items-center gap-3 px-4 py-2.5 rounded-xl border cursor-pointer select-none transition-all ${
+                        formData.deveHistoricoOutraEscola
+                          ? 'bg-amber-50 border-amber-300 text-amber-950 font-semibold shadow-xs ring-1 ring-amber-300/50'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.deveHistoricoOutraEscola)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setFormData(prev => ({
+                            ...prev,
+                            deveHistoricoOutraEscola: checked
+                          }));
+                        }}
+                        className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <span className="text-xs sm:text-sm tracking-tight">
+                        Deve histórico de outra escola
+                      </span>
+                      {formData.deveHistoricoOutraEscola && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-900 uppercase tracking-wider ml-1">
+                          SIM (Pendente)
+                        </span>
+                      )}
+                    </label>
+
+                    {formData.deveHistoricoOutraEscola && (
+                      <span className="text-[11px] text-amber-800 font-medium flex items-center gap-1.5 px-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        Histórico escolar anterior pendente de entrega pela família ou escola de origem
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -75,4 +75,5 @@ export interface Student {
   dvaDataRetorno?: string;
   dvaAtualizacao?: string;
   documentosEntregues?: Record<string, boolean>;
+  deveHistoricoOutraEscola?: boolean;
 }
