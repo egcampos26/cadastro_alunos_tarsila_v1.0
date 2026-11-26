@@ -352,6 +352,19 @@ export default function FichaSaudeE({ student, onBack, onBackToCadastro }: Ficha
 
       if (error) throw error;
 
+      // Sincroniza q7_deficiencia na Ficha de Saúde B
+      try {
+        await supabase
+          .from('ALUNOS_FICHA_SAUDE_B')
+          .upsert({
+            id_aluno: Number(student.id),
+            q7_deficiencia: true,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id_aluno' });
+      } catch (syncErr) {
+        console.warn('Erro ao sincronizar Q7 na Ficha B:', syncErr);
+      }
+
       setSaveSuccess(true);
       setTimeout(() => {
         setSaveSuccess(false);

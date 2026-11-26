@@ -262,10 +262,30 @@ export default function FichaSaude({ student, onBack, onOpenFichaE, isEditMode =
         throw error;
       }
 
+      // Verifica também se o aluno tem registro na Ficha E
+      let hasFichaE = false;
+      let fichaEQuality = '';
+      try {
+        const { data: eData } = await supabase
+          .from('ALUNOS_FICHA_SAUDE_E')
+          .select('id_aluno, q1_comentario_resumido, deficiencia_outras_qual')
+          .eq('id_aluno', student.id)
+          .maybeSingle();
+        if (eData) {
+          hasFichaE = true;
+          fichaEQuality = eData.q1_comentario_resumido || eData.deficiencia_outras_qual || '';
+        }
+      } catch (errE) {
+        console.warn('Erro ao consultar Ficha E:', errE);
+      }
+
       if (data) {
+        const finalQ7 = Boolean(data.q7_deficiencia || hasFichaE);
         setFormData({ 
           ...initialFichaSaudeData, 
           ...data,
+          q7_deficiencia: finalQ7,
+          q7_qual: data.q7_qual || fichaEQuality || '',
           q7_tipo: data.q7_tipo || [],
           q13_tipo: data.q13_tipo || [],
           programa_social: data.programa_social || [],
@@ -274,6 +294,8 @@ export default function FichaSaude({ student, onBack, onOpenFichaE, isEditMode =
       } else {
         setFormData(prev => ({
           ...prev,
+          q7_deficiencia: prev.q7_deficiencia || hasFichaE,
+          q7_qual: prev.q7_qual || fichaEQuality || '',
           data_preenchimento: prev.data_preenchimento || new Date().toISOString().split('T')[0]
         }));
       }
@@ -1041,7 +1063,31 @@ export default function FichaSaude({ student, onBack, onOpenFichaE, isEditMode =
               </div>
               <button
                 type="button"
-                onClick={onOpenFichaE}
+                onClick={async () => {
+                  try {
+                    const { id_ficha, ...validData } = formData as any;
+                    delete validData.situacao_vacinal;
+                    delete validData.acuidade_visual;
+                    delete validData.usa_oculos;
+                    delete validData.ouve_bem;
+                    delete validData.atraso_fala;
+                    delete validData.saude_auditiva_encaminhamentos;
+                    delete validData.saude_auditiva_resultados;
+                    delete validData.saude_bucal;
+
+                    await supabase
+                      .from('ALUNOS_FICHA_SAUDE_B')
+                      .upsert({
+                        id_aluno: Number(student.id),
+                        ...validData,
+                        q7_deficiencia: true,
+                        updated_at: new Date().toISOString()
+                      }, { onConflict: 'id_aluno' });
+                  } catch (err) {
+                    console.warn('Erro ao persistir Q7 na Ficha B antes de ir para Ficha E:', err);
+                  }
+                  if (onOpenFichaE) onOpenFichaE();
+                }}
                 className="w-full sm:w-auto px-5 py-3 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap shrink-0"
               >
                 <FileText className="w-4 h-4" />
